@@ -1,0 +1,55 @@
+dataset: # Dataset configuration
+  root: "data/Poleno/"                                          # root folder of the dataset
+  img_channels : 1                                              # grayscale images
+  img_size : 200                                                # original image size
+  img_interpolation : 256                                       # size after interpolation or "Null"                   
+  labels_train : data/processed/poleno/labels_train.csv         # training labels
+  labels_val : data/processed/poleno/labels_val.csv             # validation labels
+  labels_test : data/processed/poleno/labels_test.csv           # test labels
+  filenames : filenames                                         # column name containing filenames
+  img_path : filenames                                          # column name containing relative image path from root
+
+autoencoder: # VQ-VAE architecture
+  z_channels : 8                                                # latent dimension    
+  codebook_size : 2048                                          # number of distinct codebook vectors
+  down_channels : [64, 128, 256, 256]                           # channels in each downsampling blocks
+  mid_channels : [256, 256]                                     # channels in the middle blocks 
+  down_sample : [True, True, True]                              # whether to downsample at each block  
+  attns : [False, False, False]                                 # whether to use attention at each block
+  norm_channels: 32                                             # number of channels for normalization
+  num_heads : 4                                                 # number of attention heads
+  num_down_layers : 2                                           # number of resnet layers in each downsampling block
+  num_mid_layers : 2                                            # number of resnet layers in the middle block
+  num_up_layers : 2                                             # number of resnet layers in each upsampling block
+
+vqvae_train : # VQ-VAE training parameters
+  seed: 42
+  task_name : 'holographic_pollen'
+  autoencoder_lr: 0.00005
+  autoencoder_epochs : 5
+  autoencoder_batch_size : 8
+  autoencoder_steps_per_optimization : 8
+  autoencoder_img_save_steps : 10000
+  autoencoder_ckpt_steps : 10000
+  autoencoder_val_steps : 10000
+  autoencoder_val_start : 10000
+  codebook_weight : 1
+  commitment_beta : 0.25 # https://arxiv.org/pdf/1711.00937.pdf
+  perceptual_weight: 1 
+  discriminator_start_step : 6000 # Set t step when VAE no longer improves with mse and lpips
+  discriminator_loss : BCEWithLogits
+  discriminator_weight : 0.5
+  vqvae_autoencoder_ckpt_name : 'vqvae_autoencoder_8_2048'
+  vqvae_discriminator_ckpt_name : 'vqvae_discriminator_8_2048'
+  vqvae_latents_representations : 'vqvae_latents_representations_8_2048'
+
+vqvae_test :
+  save_images : True
+  model_ckpt : 'latest.pth'
+
+vqvae_inference :
+  save_images : True
+  num_samples : 8
+  num_grid_rows : 8
+  upscale_latent_dim : True
+  model_ckpt : 'latest.pth'
