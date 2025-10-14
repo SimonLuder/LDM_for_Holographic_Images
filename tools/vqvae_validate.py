@@ -47,8 +47,6 @@ def validate(config_path, model=None, model_ckpt=None):
         # transforms
         transforms_list = [torchvision.transforms.ToTensor()]
 
-        transforms_list.append()
-
         if dataset_config.get("img_interpolation"):
             transforms_list.append(torchvision.transforms.Resize((dataset_config["img_interpolation"], 
                                                                 dataset_config["img_interpolation"]),
