@@ -1,0 +1,18 @@
+# Custom image from docker-hub
+Bootstrap: docker
+From: simonluder1/byol-training
+
+%files
+    ./requirements.txt /app/requirements.txt
+
+%post
+# Install git
+    apt-get update
+    apt-get install -y git
+    apt-get clean
+    rm -rf /var/lib/apt/lists/*
+    pip install --upgrade pip
+    pip install -r /app/requirements.txt
+
+%environment
+    export PYTHONPATH=/app
