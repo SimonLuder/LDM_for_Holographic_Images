@@ -25,7 +25,7 @@ from utils.config import load_config
 from utils.wandb import WandbManager
 from model.discriminator import PatchGanDiscriminator
 from pollen_datasets.poleno import HolographyImageFolder
-from tools.vqvae_validate import validate
+from tools.vqvae import validate
 
 
 def train(config_path):
