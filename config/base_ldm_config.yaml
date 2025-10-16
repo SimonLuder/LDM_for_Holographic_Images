@@ -1,0 +1,91 @@
+name: 'Holography'   
+
+dataset: # Dataset configuration
+  root: "Z:/marvel/marvel-fhnw/data/Poleno/"                      # root folder of the dataset
+  img_channels : 1                                                # grayscale images
+  img_size : 200                                                  # original image size
+  img_interpolation : 256                                         # size after interpolation or "Null"                   
+  labels_train : ./data/processed/poleno/labels_train.csv         # training labels
+  labels_val : ./data/processed/poleno/labels_val.csv             # validation labels
+  labels_test : ./data/processed/poleno/labels_test.csv           # test labels
+  features : [
+    'area','bbox_area','convex_area','eccentricity',
+    'equivalent_diameter','feret_diameter_max',
+    'major_axis_length','minor_axis_length','max_intensity',
+    'min_intensity','mean_intensity','orientation',
+    'perimeter','perimeter_crofton','solidity']
+  classes : class_id
+  filenames : filenames                                           # column name containing filenames
+  img_path : filenames                                            # column name containing relative image path from root
+
+ddpm: # DDPM architecture
+  down_channels : [ 256, 384, 512, 768 ]                          # channels in each downsampling blocks  
+  mid_channels : [ 768, 512, 768 ]                                # channels in the middle blocks       
+  down_sample : [ True, True, True ]                              # whether to downsample at each block
+  attn_down : [True, True, True]                                  # whether to use attention at each block
+  time_emb_dim : 512                                              # time embedding dimension
+  norm_channels : 32                                              # nr of channels for normalization
+  num_heads : 16                                                  # nr of attention heads  
+  conv_out_channels : 256                                         # nr of channels after the upsampling blocks
+  num_down_layers : 2                                             # nr of layers in each downsampling block
+  num_mid_layers : 2                                              # nr of layers in the middle blocks
+  num_up_layers : 2                                               # nr of layers in each upsampling block
+  cond_emb_dim : 512                                              # conditional embedding dimension
+  cls_emb_dim : 256                                               # class embedding dimension
+  tbl_emb_dim : 256                                               # tabular embedding dimension
+  img_emb_dim : 256                                               # image embedding dimension
+  cond_insert_type : "concatenation"                              # how to combine conditional and time embedding (additive or concatenation)
+
+autoencoder: # VQ-VAE architecture
+  z_channels : 8                                                  # latent dimension    
+  codebook_size : 2048                                            # number of distinct codebook vectors
+  down_channels : [64, 128, 256, 256]                             # channels in each downsampling blocks
+  mid_channels : [256, 256]                                       # channels in the middle blocks 
+  down_sample : [True, True, True]                                # whether to downsample at each block  
+  attns : [False, False, False]                                   # whether to use attention at each block
+  norm_channels: 32                                               # nr of channels for normalization
+  num_heads : 4                                                   # nr of attention heads
+  num_down_layers : 2                                             # nr of resnet layers in each downsampling block
+  num_mid_layers : 2                                              # nr of resnet layers in the middle block
+  num_up_layers : 2                                               # nr of resnet layers in each upsampling block
+
+ldm_train : # LDM training parameters
+  seed : 42
+  task_name : 'holographic_pollen'
+  conditioning : 'class+tabular'                                        # class, tabular and or image combination with (+) sign
+  ldm_lr :  0.00005                                               # ldm learning rate
+  ldm_disc_lr : 0.00005                                           # discriminator learning rate
+  ldm_epochs : 15                                                 # nr of epochs to train
+  ldm_batch_size : 8                                              # samples per batch
+  ldm_steps_per_optimization : 1                                  # optimize every n batches
+  ldm_num_timesteps : 1000                                        # use n timesteps to generate the images
+  ldm_beta_start : 0.0015                                         # linear noise schedule beta start
+  ldm_beta_end : 0.0195                                           # linear noise schedule beta end
+  ldm_cfg_discard_prob : 0.1                                      # classifier free guidance discard probability during training
+  ldm_ckpt_steps : 10000                                          # create model checkpoints every n steps
+  ldm_val_steps : 10000                                           # validate the model every n steps
+  ldm_val_start : 10000                                           # start making checkpoints from this batch onwards
+  ldm_perceptual_weight : 0                                       # lpips weight in the loss function
+  ldm_discriminator_start_step : -1                               # start the discriminator after n batches (-1 means no discriminator)
+  ldm_discriminator_loss : BCEWithLogits                          # discrminator loss criterion
+  ldm_discriminator_weight : 0                                    # weight of the discriminator loss
+  ldm_ckpt_name : 'ldm_clstbl_8_2048'                             # name of the model 
+  ldm_discriminator_ckpt_name : 'ldm_discriminator_clstbl_8_2048' # name of the discriminator checkpoint
+  vqvae_ckpt_dir : vqvae_autoencoder_8_2048                       # replace with the desired vqvae model
+  vqvae_ckpt_model: 'latest.pth'
+  vqvae_latents_representations : 'vqvae_latents_representations_8_2048'
+
+ddpm_validation : 
+  model_ckpts : ['latest.pth']
+
+ddpm_test :
+  model_ckpt : 'latest.pth'
+
+ddpm_inference :
+  save_images : True
+  num_samples : 8
+  num_grid_rows : 8
+  upscale_latent_dim : True
+  ldm_cfg_strength : 0
+  ddpm_model_ckpt : 'latest.pth'
+  autoencoder_model_ckpt : 'latest.pth'

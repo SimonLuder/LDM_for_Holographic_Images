@@ -122,7 +122,6 @@ class UNet(nn.Module):
 
         for mid in self.mids:
             x = mid(x, t_emb, cond_emb)
-            print(x.shape)
         # out [B x C3 x H/4 x W/4]
 
         for up in self.ups:
