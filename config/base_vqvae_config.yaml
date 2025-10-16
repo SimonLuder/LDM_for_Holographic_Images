@@ -43,7 +43,6 @@ vqvae_train : # VQ-VAE training parameters
   discriminator_weight : 0.5
   vqvae_autoencoder_ckpt_name : 'vqvae_autoencoder_8_2048'
   vqvae_discriminator_ckpt_name : 'vqvae_discriminator_8_2048'
-  vqvae_latents_representations : 'vqvae_latents_representations_8_2048'
 
 vqvae_test :
   save_images : True

@@ -15,17 +15,17 @@ import torchvision
 from torchvision.utils import make_grid
 from torchmetrics.image.lpip import LearnedPerceptualImagePatchSimilarity as LPIPS
 
-# add parent dir to path
-current_dir = os.path.dirname(os.path.abspath(__file__))
-parent_dir = os.path.dirname(current_dir) 
-sys.path.append(parent_dir)
+# # add parent dir to path
+# current_dir = os.path.dirname(os.path.abspath(__file__))
+# parent_dir = os.path.dirname(current_dir) 
+# sys.path.append(parent_dir)
 
 from model.vqvae import VQVAE
 from utils.config import load_config
 from utils.wandb import WandbManager
 from model.discriminator import PatchGanDiscriminator
 from pollen_datasets.poleno import HolographyImageFolder
-from tools.vqvae import validate
+from .vqvae_validate import validate
 
 
 def train(config_path):
@@ -37,7 +37,7 @@ def train(config_path):
     dataset_config = config["dataset"]
     train_config = config["vqvae_train"]
 
-    train_with_discriminator = train_config['discriminator_weight'] > 0
+    train_with_discriminator = train_config['discriminator_weight'] > 0 and train_config['discriminator_start_step'] >= 0
 
     # create checkpoints and sample paths
     Path(os.path.join(train_config["task_name"], train_config['vqvae_autoencoder_ckpt_name'])).mkdir(parents=True, exist_ok=True)   
