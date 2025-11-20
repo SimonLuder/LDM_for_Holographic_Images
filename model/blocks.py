@@ -415,4 +415,4 @@ class UpBlock(nn.Module):
                 out_attn = out_attn.transpose(1, 2).reshape(B, C, H, W)
                 x = x + out_attn            
 
-            return x
+        return x

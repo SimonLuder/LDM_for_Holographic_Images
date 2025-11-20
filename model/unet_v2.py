@@ -22,6 +22,10 @@ class UNet(nn.Module):
 
         self.cross_attn = self.cond_insert_type == "crossattention"
 
+        # null context vector for cross-attention
+        if self.cross_attn: 
+            self.null_context = nn.Parameter(torch.randn(1, 1, self.cond_emb_dim) * 0.02)
+
         self.context_encoder = context_encoder
 
         # Validating Unet Model configurations
@@ -110,8 +114,17 @@ class UNet(nn.Module):
                 t_emb = torch.cat([t_emb, cond_emb], dim=1)
                 t_emb = self.proj_concat_layer(t_emb)
 
+            if self.cond_insert_type == "crossattention":
+                if cond_emb.dim() == 2:
+                    cond_emb = cond_emb.unsqueeze(1)
+
         else:
-            cond_emb = t_emb
+            # pass learned unconditional vector
+            if self.cross_attn:
+                cond_emb = self.null_context.expand(x.size(0), -1, -1)
+            else:
+                # if not using cross-attention, no need for cond_emb
+                cond_emb = None
 
         down_outs = []
         for down in self.downs:
@@ -156,7 +169,3 @@ def get_position_embedding(time_steps, temb_dim):
     t_emb = time_steps[:, None].repeat(1, temb_dim // 2) / factor
     t_emb = torch.cat(tensors=[torch.sin(t_emb), torch.cos(t_emb)], dim=-1)
     return t_emb
-    
-
-
-
