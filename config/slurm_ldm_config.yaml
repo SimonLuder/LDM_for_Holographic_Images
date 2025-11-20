@@ -10,6 +10,7 @@ dataset: # Dataset configuration
   labels_test : ./data/processed/poleno/labels_test.csv           # test labels
   filenames : filenames                                           # column name containing filenames
   img_path : filenames                                            # column name containing relative image path from root
+  particle_id : event_id                                          # how to identify the same particle object
 
 ddpm: # DDPM architecture
   down_channels : [ 256, 384, 512, 768 ]                          # channels in each downsampling blocks  
@@ -27,11 +28,11 @@ ddpm: # DDPM architecture
   cls_emb_dim : 256                                               # class embedding dimension
   tbl_emb_dim : 256                                               # tabular embedding dimension
   img_emb_dim : 256                                               # image embedding dimension
-  cond_insert_type : "concatenation"                              # how to combine conditional and time embedding (additive or concatenation)
+  cond_insert_type : "concatenation"                              # how to combine conditional and time embedding (additive, concatenation or crossattention)
 
 autoencoder: # VQ-VAE architecture
   z_channels : 8                                                  # latent dimension    
-  codebook_size : 2048                                            # number of distinct codebook vectors
+  codebook_size : 512                                             # number of distinct codebook vectors
   down_channels : [64, 128, 256, 256]                             # channels in each downsampling blocks
   mid_channels : [256, 256]                                       # channels in the middle blocks 
   down_sample : [True, True, True]                                # whether to downsample at each block  
@@ -42,10 +43,59 @@ autoencoder: # VQ-VAE architecture
   num_mid_layers : 2                                              # nr of resnet layers in the middle block
   num_up_layers : 2                                               # nr of resnet layers in each upsampling block
 
+conditioning: # Conditional encoders
+  enabled: "regionprops"
+  encoders: 
+
+    class: 
+      type: categorical
+      encoder: Embedding
+      use_columns: class_id
+      params:
+        num_classes: 80
+        out_dim: 256
+
+    regionprops: 
+      type: numeric_vector
+      encoder: MLP
+      params:
+        in_dim: 15
+        hidden_dim: 128
+        out_dim: 256
+      use_columns:
+        - area
+        - bbox_area
+        - convex_area
+        - eccentricity
+        - equivalent_diameter
+        - feret_diameter_max
+        - major_axis_length
+        - minor_axis_length
+        - max_intensity
+        - min_intensity
+        - mean_intensity
+        - orientation
+        - perimeter
+        - perimeter_crofton
+        - solidity
+
+    image:
+      type: image
+      encoder: CLIPImageEncoder
+      params:
+        out_dim: 256
+        pretrained: "openai/clip-vit-base-patch32"
+      use_columns: cond_img_path  # path to conditioning image
+
+    rotation:
+      type: angle
+      encoder: Identity
+      params:
+        out_dim: 4
+
 ldm_train : # LDM training parameters
   seed : 42
   task_name : 'holographic_pollen'
-  conditioning : 'class+tabular'                                  # class, tabular and or image combination with (+) sign
   ldm_lr :  0.00005                                               # ldm learning rate
   ldm_disc_lr : 0.00005                                           # discriminator learning rate
   ldm_epochs : 15                                                 # number of epochs to train
@@ -66,7 +116,7 @@ ldm_train : # LDM training parameters
   ldm_discriminator_ckpt_name : 'ldm_discriminator_clstbl_8_512'  # name of the discriminator checkpoint
   vqvae_ckpt_dir : vqvae_autoencoder_8_512                        # replace with the desired vqvae model
   vqvae_ckpt_model: 'latest.pth'
-  vqvae_latents_representations : 'vqvae_latents_representations_8_2048'
+  vqvae_latents_representations : 'vqvae_latents_representations_8_512'
 
 ddpm_validation :
   model_ckpts : ['latest.pth']
