@@ -6,6 +6,7 @@ from pathlib import Path
 
 import torch
 import torchvision
+from torchvision.utils import make_grid
 
 
 def plot_images(images):
@@ -86,3 +87,52 @@ def load_tensors_batch(save_dir, filenames):
         tensor = torch.load(tensor_path)
         loaded_tensors.append(tensor)
     return loaded_tensors
+
+
+def get_transforms(dataset_config):
+    """ 
+    Get image transformations based on dataset configuration.
+    """
+    transforms_list = []
+
+    # Convert to tensor
+    transforms_list.append(torchvision.transforms.ToTensor()) 
+
+    # Resize if specified
+    if dataset_config.get("img_interpolation"):
+        transforms_list.append(
+            torchvision.transforms.Resize((
+                dataset_config["img_interpolation"], 
+                dataset_config["img_interpolation"]),
+                interpolation = torchvision.transforms.InterpolationMode.BILINEAR
+            )
+        )
+    # Normalize to [-1, 1]
+    transforms_list.append(
+        torchvision.transforms.Normalize(
+            [0.5] * dataset_config["img_channels"], 
+            [0.5] * dataset_config["img_channels"]
+        )
+    )
+    # Compose all transformations
+    transforms = torchvision.transforms.Compose(transforms_list)
+
+    return transforms
+
+
+# save images
+def save_sample_images(input_img, output_img, step_count, train_cfg):
+    """Saves a grid of input and output images for comparison."""
+    sample_size = min(8, input_img.shape[0])
+    save_output = torch.clamp(output_img[:sample_size], -1., 1.).detach().cpu()
+    save_output = ((save_output + 1) / 2)
+    save_input = ((input_img[:sample_size] + 1) / 2).detach().cpu()
+    
+    grid = make_grid(torch.cat([save_input, save_output], dim=0), nrow=sample_size)
+    img = torchvision.transforms.ToPILImage()(grid)
+
+    img.save(os.path.join(train_cfg["ckpt_folder"], 
+                            train_cfg["vqvae_autoencoder_ckpt_name"], 
+                            'samples',
+                            f'step_{step_count}.png'))
+    img.close()

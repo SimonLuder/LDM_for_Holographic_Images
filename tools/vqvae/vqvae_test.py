@@ -17,45 +17,33 @@ sys.path.append(parent_dir)
 from model.vqvae import VQVAE
 from pollen_datasets.poleno import HolographyImageFolder
 from utils.config import load_config
-from utils.train_test_utils import save_images_batch, save_json
+from utils.train_test_utils import save_images_batch, save_json, get_transforms
 
 def test(config_file):
 
     config = load_config(config_file)
 
-    dataset_config = config['dataset']
+    dataset_cfg = config['dataset']
     autoencoder_config = config['autoencoder']
-    train_config = config['vqvae_train']
+    train_cfg = config['vqvae_train']
     test_config = config["vqvae_test"]
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-    images_save_dir = os.path.join(train_config['task_name'], train_config['vqvae_autoencoder_ckpt_name'], "test", "images")
-    log_save_name = os.path.join(train_config['task_name'], train_config['vqvae_autoencoder_ckpt_name'], "test", "test_logs.json")
+    images_save_dir = os.path.join(train_cfg['ckpt_folder'], train_cfg['vqvae_autoencoder_ckpt_name'], "test", "images")
+    log_save_name = os.path.join(train_cfg['ckpt_folder'], train_cfg['vqvae_autoencoder_ckpt_name'], "test", "test_logs.json")
 
     # create checkpoint paths
     Path(images_save_dir).mkdir(parents=True, exist_ok=True)
 
     # transforms
-    transforms_list = []
-
-    transforms_list.append(torchvision.transforms.ToTensor())
-
-    if dataset_config.get("img_interpolation"):
-        transforms_list.append(torchvision.transforms.Resize((dataset_config["img_interpolation"], 
-                                                            dataset_config["img_interpolation"]),
-                                                            interpolation = torchvision.transforms.InterpolationMode.BILINEAR))
-
-    transforms_list.append(torchvision.transforms.Normalize((0.5) * dataset_config["img_channels"], 
-                                                            (0.5) * dataset_config["img_channels"]))
-
-    transforms = torchvision.transforms.Compose(transforms_list)
+    transforms = get_transforms(dataset_cfg)
 
     #dataset
-    dataset_test = HolographyImageFolder(root=dataset_config["root"], 
+    dataset_test = HolographyImageFolder(root=dataset_cfg["root"], 
                                          transform=transforms, 
-                                         config=dataset_config,
-                                         labels=dataset_config.get("labels_test"))
+                                         dataset_cfg=dataset_cfg,
+                                         labels=dataset_cfg.get("labels_test"))
 
     # dataloader
     dataloader_test = DataLoader(dataset_test,
@@ -64,11 +52,11 @@ def test(config_file):
     
 
     # load pretrained vqvae
-    model = VQVAE(img_channels=dataset_config['img_channels'], config=autoencoder_config).to(device)
+    model = VQVAE(img_channels=dataset_cfg['img_channels'], config=autoencoder_config).to(device)
 
     model.load_state_dict(
-        torch.load(os.path.join(train_config['task_name'], 
-                                train_config['vqvae_autoencoder_ckpt_name'], 
+        torch.load(os.path.join(train_cfg['ckpt_folder'], 
+                                train_cfg['vqvae_autoencoder_ckpt_name'], 
                                 test_config["model_ckpt"]), 
                                 map_location=device))
     model.eval()
