@@ -23,7 +23,8 @@ from utils.train_test_utils import save_json, get_transforms
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-def validate(config_path, model=None, model_ckpt=None, step_count=0):
+
+def validate(config, model=None, model_ckpt=None, step_count=0):
 
     print("entered val loop")
 
@@ -31,15 +32,17 @@ def validate(config_path, model=None, model_ckpt=None, step_count=0):
     global lpips_model
     global dataloader_val
 
-    config = load_config(config_path)
-
+    run_name = config["name"]
     dataset_cfg = config['dataset']
     autoencoder_cfg = config['autoencoder']
     train_cfg = config['vqvae_train']
 
+    ae_ckpt_name = "autoencoder"
+
     # create checkpoint paths
     Path(os.path.join(train_cfg['ckpt_folder'], 
-                      train_cfg['vqvae_autoencoder_ckpt_name']
+                      run_name,
+                      ae_ckpt_name,
                       )).mkdir(parents=True, exist_ok=True)
 
     if not "dataloader_val" in globals(): # singleton design pattern
@@ -66,7 +69,8 @@ def validate(config_path, model=None, model_ckpt=None, step_count=0):
     
         model.load_state_dict(
             torch.load(os.path.join(train_cfg['ckpt_folder'], 
-                                    train_cfg['vqvae_autoencoder_ckpt_name'], 
+                                    run_name,
+                                    ae_ckpt_name,
                                     model_ckpt), 
                                     map_location=device))
     model.eval()
@@ -130,21 +134,25 @@ def validate(config_path, model=None, model_ckpt=None, step_count=0):
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description='Arguments for vqvae validation')
-    parser.add_argument('--config', dest='config_path',
-                        default='config/base_vqvae_config.yaml', type=str)
+    parser.add_argument('--config', dest='config_path', default='config/base_vqvae_config.yaml', type=str)
     
     args = parser.parse_args()
 
     config = load_config(args.config_path)
     validate_ckpts = config["vqvae_validation"]["model_ckpts"]
-    log_filepath = os.path.join(config["train"]["ckpt_folder"], config["train"]["vqvae_autoencoder_ckpt_name"], "val_logs.json")
+    model_config = config['autoencoder']
+
+    log_filepath = os.path.join(config["train"]["ckpt_folder"], 
+                                config["name"],
+                                "val_logs.json")
 
     logs = []
     
     for model_ckpt in validate_ckpts:
-        log = validate(args.config_path, model_ckpt=model_ckpt)
+        log = validate(config, model_ckpt=model_ckpt)
         log["step"] = model_ckpt
         logs.append(log)
+        
     save_json(logs, log_filepath)
     
 

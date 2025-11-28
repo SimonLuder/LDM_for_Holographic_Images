@@ -1,4 +1,4 @@
-name: 'Holography'
+name: 'vqvae_8_512'
 
 dataset: # Dataset configuration
   root: "Z:/marvel/marvel-fhnw/data/"                           # root folder of the dataset
@@ -32,18 +32,16 @@ vqvae_train : # VQ-VAE training parameters
   autoencoder_epochs : 5
   autoencoder_batch_size : 8
   autoencoder_steps_per_optimization : 8
-  autoencoder_img_save_steps : 10000
-  autoencoder_ckpt_steps : 10000
-  autoencoder_val_steps : 10000
-  autoencoder_val_start : 10000
+  autoencoder_img_save_steps : 10
+  autoencoder_ckpt_steps : 10
+  autoencoder_val_steps : 10
+  autoencoder_val_start : 10
   codebook_weight : 1
   commitment_beta : 0.25 # https://arxiv.org/pdf/1711.00937.pdf
   perceptual_weight: 1 
   discriminator_start_step : 6000 # Set t step when VAE no longer improves with mse and lpips
   discriminator_loss : BCEWithLogits
   discriminator_weight : 0.5
-  vqvae_autoencoder_ckpt_name : 'vqvae_autoencoder_8_512'
-  vqvae_discriminator_ckpt_name : 'vqvae_discriminator_8_512'
 
 vqvae_test :
   save_images : True

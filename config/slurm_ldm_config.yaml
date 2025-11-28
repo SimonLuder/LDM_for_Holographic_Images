@@ -1,4 +1,4 @@
-name: 'Holography'   
+name: 'ldm_8_512'
 
 dataset: # Dataset configuration
   root: "data/"                                                   # root folder of the dataset

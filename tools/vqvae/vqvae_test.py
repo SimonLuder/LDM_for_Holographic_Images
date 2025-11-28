@@ -19,19 +19,20 @@ from pollen_datasets.poleno import HolographyImageFolder
 from utils.config import load_config
 from utils.train_test_utils import save_images_batch, save_json, get_transforms
 
-def test(config_file):
+def test(config):
 
-    config = load_config(config_file)
-
+    run_name = config["name"]
     dataset_cfg = config['dataset']
     autoencoder_config = config['autoencoder']
     train_cfg = config['vqvae_train']
     test_config = config["vqvae_test"]
 
+    ae_ckpt_name = f"autoencoder"
+
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-    images_save_dir = os.path.join(train_cfg['ckpt_folder'], train_cfg['vqvae_autoencoder_ckpt_name'], "test", "images")
-    log_save_name = os.path.join(train_cfg['ckpt_folder'], train_cfg['vqvae_autoencoder_ckpt_name'], "test", "test_logs.json")
+    images_save_dir = os.path.join(train_cfg['ckpt_folder'], run_name, "test", "images")
+    log_save_name = os.path.join(train_cfg['ckpt_folder'], run_name, "test", "test_logs.json")
 
     # create checkpoint paths
     Path(images_save_dir).mkdir(parents=True, exist_ok=True)
@@ -56,7 +57,8 @@ def test(config_file):
 
     model.load_state_dict(
         torch.load(os.path.join(train_cfg['ckpt_folder'], 
-                                train_cfg['vqvae_autoencoder_ckpt_name'], 
+                                run_name,
+                                ae_ckpt_name, 
                                 test_config["model_ckpt"]), 
                                 map_location=device))
     model.eval()
@@ -126,10 +128,11 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description='Arguments for vqvae inference')
     parser.add_argument('--config', dest='config_path', default='config/base_vqvae_config.yaml', type=str)
-    
     args = parser.parse_args()
 
-    test(args.config_path)
+    config = load_config(args.config_path)
+
+    test(config)
 
     
 

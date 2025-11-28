@@ -5,6 +5,7 @@ def load_config(config_file):
     with open(config_file, 'r') as stream:
         try:
             config = yaml.safe_load(stream)
+            config['config_path'] = config_file
             return config
         except yaml.YAMLError as exc:
             print(exc)

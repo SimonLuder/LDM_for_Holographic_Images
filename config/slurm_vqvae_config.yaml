@@ -1,3 +1,5 @@
+name: 'vqvae_8_512'
+
 dataset: # Dataset configuration
   root: "data/"                                                 # root folder of the dataset
   img_channels : 1                                              # grayscale images
@@ -40,8 +42,6 @@ vqvae_train : # VQ-VAE training parameters
   discriminator_start_step : 6000 # Set t step when VAE no longer improves with mse and lpips
   discriminator_loss : BCEWithLogits
   discriminator_weight : 0.5
-  vqvae_autoencoder_ckpt_name : 'vqvae_autoencoder_8_512'
-  vqvae_discriminator_ckpt_name : 'vqvae_discriminator_8_512'
 
 vqvae_test :
   save_images : True

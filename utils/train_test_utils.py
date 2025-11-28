@@ -121,7 +121,7 @@ def get_transforms(dataset_config):
 
 
 # save images
-def save_sample_images(input_img, output_img, step_count, train_cfg):
+def save_sample_images(input_img, output_img, filepath):
     """Saves a grid of input and output images for comparison."""
     sample_size = min(8, input_img.shape[0])
     save_output = torch.clamp(output_img[:sample_size], -1., 1.).detach().cpu()
@@ -131,8 +131,5 @@ def save_sample_images(input_img, output_img, step_count, train_cfg):
     grid = make_grid(torch.cat([save_input, save_output], dim=0), nrow=sample_size)
     img = torchvision.transforms.ToPILImage()(grid)
 
-    img.save(os.path.join(train_cfg["ckpt_folder"], 
-                            train_cfg["vqvae_autoencoder_ckpt_name"], 
-                            'samples',
-                            f'step_{step_count}.png'))
+    img.save(filepath)
     img.close()

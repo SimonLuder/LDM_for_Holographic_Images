@@ -21,16 +21,17 @@ from utils.train_test_utils import get_transforms
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-def inference(config_file):
+def inference(config):
 
-    config = load_config(config_file)
-
+    run_name = config["name"]
     dataset_cfg = config['dataset']
     autoencoder_cfg = config['autoencoder']
     train_cfg = config['vqvae_train']
     inference_cfg = config["vqvae_inference"]
 
-    Path(os.path.join(train_cfg['ckpt_folder'], train_cfg['vqvae_autoencoder_ckpt_name'], 'inference')).mkdir(parents=True, exist_ok=True)
+    ae_ckpt_name = f"autoencoder"
+
+    Path(os.path.join(train_cfg['ckpt_folder'], run_name, 'inference')).mkdir(parents=True, exist_ok=True)
 
     # transforms
     transforms = get_transforms(dataset_cfg)
@@ -52,7 +53,8 @@ def inference(config_file):
     
     model.load_state_dict(
         torch.load(os.path.join(train_cfg['ckpt_folder'], 
-                                train_cfg['vqvae_autoencoder_ckpt_name'], 
+                                run_name,
+                                ae_ckpt_name, 
                                 inference_cfg["model_ckpt"]), 
                                 map_location=device))
     
@@ -88,20 +90,21 @@ def inference(config_file):
         decoder_grid = torchvision.transforms.ToPILImage()(decoder_grid)
         input_grid = torchvision.transforms.ToPILImage()(input_grid)
         
-        input_grid.save(os.path.join(train_cfg['ckpt_folder'], train_cfg['vqvae_autoencoder_ckpt_name'], 
-                                     'inference', 'input_samples.png'))
-        encoder_grid.save(os.path.join(train_cfg['ckpt_folder'], train_cfg['vqvae_autoencoder_ckpt_name'], 
-                                       'inference', 'encoded_samples.png'))
-        decoder_grid.save(os.path.join(train_cfg['ckpt_folder'], train_cfg['vqvae_autoencoder_ckpt_name'], 
-                                       'inference', 'reconstructed_samples.png'))
+        input_grid.save(os.path.join(
+            train_cfg['ckpt_folder'], run_name, 'inference', 'input_samples.png'))
+        encoder_grid.save(os.path.join(
+            train_cfg['ckpt_folder'], run_name, 'inference', 'encoded_samples.png'))
+        decoder_grid.save(os.path.join(
+            train_cfg['ckpt_folder'], run_name, 'inference', 'reconstructed_samples.png'))
 
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description='Arguments for vqvae inference')
-    parser.add_argument('--config', dest='config_path',
-                        default='config/base_vqvae_config.yaml', type=str)
+    parser.add_argument('--config', dest='config_path', default='config/base_vqvae_config.yaml', type=str)
     args = parser.parse_args()
 
-    inference(args.config_path)
+    config = load_config(args.config_path)
+
+    inference(config)
 
 # python tools/vqvae_inference.py --config holographic_pollen/vqvae_autoencoder_ckpt_512_3/ldm3_config.yaml

@@ -28,29 +28,38 @@ from pollen_datasets.poleno import HolographyImageFolder
 from .vqvae_validate import validate
 
 
-def train(config_path):
+def train(config):
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-    config = load_config(config_path)
+    run_name = config["name"]
+    config_path = config['config_path']
     model_cfg = config["autoencoder"]
     dataset_cfg = config["dataset"]
     train_cfg = config["vqvae_train"]
+    
+    ae_ckpt_name = f"autoencoder"
+    d_ckpt_name = f"discriminator"
+
+    if Path(os.path.join(train_cfg["ckpt_folder"], run_name,  ae_ckpt_name)).exists():
+        raise FileExistsError(f"{run_name} already exists in {train_cfg['ckpt_folder']}. Stopping to avoid overwriting.")
+    else:
+        print(f"Creating new run: {run_name} in {train_cfg['ckpt_folder']}")
 
     train_with_discriminator = train_cfg['discriminator_weight'] > 0 and train_cfg['discriminator_start_step'] >= 0
 
     # create checkpoints and sample paths
-    Path(os.path.join(train_cfg["ckpt_folder"], train_cfg['vqvae_autoencoder_ckpt_name'])).mkdir(parents=True, exist_ok=True)   
-    Path(os.path.join(train_cfg["ckpt_folder"], train_cfg['vqvae_discriminator_ckpt_name'])).mkdir( parents=True, exist_ok=True)
-    Path(os.path.join(train_cfg["ckpt_folder"], train_cfg["vqvae_autoencoder_ckpt_name"], 'samples')).mkdir( parents=True, exist_ok=True)
+    Path(os.path.join(train_cfg["ckpt_folder"], run_name, ae_ckpt_name)).mkdir(parents=True, exist_ok=True)   
+    Path(os.path.join(train_cfg["ckpt_folder"], run_name, d_ckpt_name)).mkdir( parents=True, exist_ok=True)
+    Path(os.path.join(train_cfg["ckpt_folder"], run_name, 'samples')).mkdir( parents=True, exist_ok=True)
 
     # copy config to checkpoint folder
     shutil.copyfile(config_path, os.path.join(train_cfg['ckpt_folder'], 
-                                              train_cfg['vqvae_autoencoder_ckpt_name'], 
+                                              run_name, 
                                               os.path.basename(config_path)))
 
     # setup WandbManager
-    wandb_manager = WandbManager(project="MSE_P9_LDM", run_name=train_cfg['vqvae_autoencoder_ckpt_name'] + "_vqvae", config=config)
+    wandb_manager = WandbManager(project="MSE_P9_LDM", run_name=run_name, config=config)
     # init run
     wandb_run = wandb_manager.get_run()
 
@@ -128,10 +137,10 @@ def train(config_path):
 
             # save images
             if step_count % image_save_steps == 0:
-                save_sample_images(im, output, step_count=step_count, train_cfg=train_cfg)
+                save_as = os.path.join(train_cfg["ckpt_folder"], run_name, 'samples', f'step_{step_count}.png')
+                save_sample_images(im, output, save_as)
             
 
-            
             ########################## Autoencoder optimization ##########################
             # reconstruction loss
             rec_loss = mse_loss(output, im)
@@ -213,23 +222,27 @@ def train(config_path):
 
                 torch.save(model.state_dict(), 
                            os.path.join(train_cfg["ckpt_folder"],
-                                        train_cfg['vqvae_autoencoder_ckpt_name'],
+                                        run_name,
+                                        ae_ckpt_name,
                                         "latest.pth"))
                 torch.save(model.state_dict(), 
                             os.path.join(train_cfg["ckpt_folder"],
-                                         train_cfg['vqvae_autoencoder_ckpt_name'],
+                                         run_name,
+                                         ae_ckpt_name,
                                          f"{step_count}.pth"))
                 
                 if train_with_discriminator:
 
                     torch.save(discriminator.state_dict(), 
                            os.path.join(train_cfg["ckpt_folder"],
-                                        train_cfg['vqvae_discriminator_ckpt_name'],
+                                        run_name,
+                                        d_ckpt_name,
                                         "latest.pth"))
                     
                     torch.save(discriminator.state_dict(), 
                             os.path.join(train_cfg["ckpt_folder"],
-                                         train_cfg['vqvae_discriminator_ckpt_name'],
+                                         run_name,
+                                         d_ckpt_name,
                                          f"{step_count}.pth"))
                     
             ##############################################################################
@@ -237,7 +250,7 @@ def train(config_path):
             ################################# validation #################################
             logs_val = None
             if (step_count % train_cfg["autoencoder_val_steps"] == 0) and (step_count >= train_cfg["autoencoder_val_start"]):
-                logs_val = validate(config_path=config_path, model=model, step_count=step_count)
+                logs_val = validate(config=config, model=model, step_count=step_count)
             #############################################################################
 
             ################################### logging ##################################
@@ -282,8 +295,9 @@ def train(config_path):
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description='Arguments for ldm training')
-    parser.add_argument('--config', dest='config_path',
-                        default='config/base_vqvae_config.yaml', type=str)
+    parser.add_argument('--config', dest='config_path', default='config/base_vqvae_config.yaml', type=str)
     args = parser.parse_args()
 
-    train(args.config_path)
+    config = load_config(args.config_path)
+
+    train(config)
