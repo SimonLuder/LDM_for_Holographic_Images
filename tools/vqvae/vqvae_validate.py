@@ -91,7 +91,7 @@ def validate(config, model=None, model_ckpt=None, step_count=0):
     
     with torch.no_grad():
 
-        pbar = tqdm(dataloader_val)
+        pbar = tqdm(dataloader_val, disable=train_cfg.get("no_tqdm", False))
         for (im, folder, filenames) in pbar:
 
             im = im.float().to(device)

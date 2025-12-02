@@ -26,7 +26,6 @@ autoencoder: # VQ-VAE architecture
 
 vqvae_train : # VQ-VAE training parameters
   seed: 42
-  # task_name : 'holographic_pollen'
   ckpt_folder : 'checkpoints'
   autoencoder_lr: 0.00005
   autoencoder_epochs : 5
@@ -42,6 +41,7 @@ vqvae_train : # VQ-VAE training parameters
   discriminator_start_step : 6000 # Set t step when VAE no longer improves with mse and lpips
   discriminator_loss : BCEWithLogits
   discriminator_weight : 0.5
+  no_tqdm : True
 
 vqvae_test :
   save_images : True

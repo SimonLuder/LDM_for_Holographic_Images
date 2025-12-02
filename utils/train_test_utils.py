@@ -133,3 +133,8 @@ def save_sample_images(input_img, output_img, filepath):
 
     img.save(filepath)
     img.close()
+
+
+def online_running_mean(mu, x, step):
+    mu += (x - mu) / step
+    return mu

@@ -22,7 +22,7 @@ from torchmetrics.image.lpip import LearnedPerceptualImagePatchSimilarity as LPI
 from model.vqvae import VQVAE
 from utils.config import load_config
 from utils.wandb import WandbManager
-from utils.train_test_utils import get_transforms, save_sample_images
+from utils.train_test_utils import get_transforms, save_sample_images, online_running_mean
 from model.discriminator import PatchGanDiscriminator
 from pollen_datasets.poleno import HolographyImageFolder
 from .vqvae_validate import validate
@@ -121,13 +121,13 @@ def train(config):
     step_count = 0
 
     for epoch_idx in range(num_epochs):
-        reconstruction_losses = []          # reconstruction loss (l2)
-        codebook_losses = []                # codebook loss between predicted and nearest codebook vector
-        lpips_losses = []                   # preceptual loss (lpips)
-        d_losses = []                       # discriminator loss
-        g_losses = []                       # weighted sum of reconstruction, preceptual and discriminator scores
+        ep_rec_loss = 0                     # reconstruction loss (l2)
+        ep_codebook_loss = 0                # codebook loss between predicted and nearest codebook vector
+        ep_lpips_loss = 0                   # preceptual loss (lpips)
+        ep_d_loss = 0                       # discriminator loss
+        ep_g_loss = 0                       # weighted sum of reconstruction, preceptual and discriminator scores
 
-        pbar = tqdm(dataloader)
+        pbar = tqdm(dataloader, disable=train_cfg.get("no_tqdm", False))
         for (im, _, _) in pbar:
     
             im = im.float().to(device)
@@ -144,14 +144,18 @@ def train(config):
             ########################## Autoencoder optimization ##########################
             # reconstruction loss
             rec_loss = mse_loss(output, im)
-            reconstruction_losses.append(rec_loss.item())
+            ep_rec_loss = online_running_mean(ep_rec_loss, rec_loss.item(), step_count+1)
 
             # codebook & commitment loss loss
             g_loss = (rec_loss + 
                       train_cfg['codebook_weight'] * quantize_losses["codebook_loss"] + 
                       train_cfg['commitment_beta'] * quantize_losses["commitment_loss"]
                       )
-            codebook_losses.append(train_cfg['codebook_weight'] * quantize_losses['codebook_loss'].item())
+            ep_codebook_loss = online_running_mean(
+                ep_codebook_loss, 
+                train_cfg['codebook_weight'] * quantize_losses['codebook_loss'].item(), 
+                step_count+1
+            )
 
             # lpips loss
             im_lpips = torch.clamp(im, -1., 1.)
@@ -162,7 +166,11 @@ def train(config):
                 out_lpips = out_lpips.repeat(1,3,1,1)
 
             lpips_loss = train_cfg['perceptual_weight'] * torch.mean(lpips_model(out_lpips, im_lpips))
-            lpips_losses.append(train_cfg['perceptual_weight'] * lpips_loss.item())
+            ep_lpips_loss = online_running_mean(
+                ep_lpips_loss, 
+                train_cfg['perceptual_weight'] * lpips_loss.item(),
+                step_count+1
+            )
             g_loss += lpips_loss
 
             # discriminator loss (used only from "discriminator_start_step" onwards)
@@ -174,7 +182,7 @@ def train(config):
                 
                 g_loss += train_cfg['discriminator_weight'] * disc_fake_loss
 
-            g_losses.append(g_loss.item())
+            ep_g_loss = online_running_mean(ep_g_loss, g_loss.item(), step_count+1)
 
             # average per step
             g_loss = g_loss / steps_per_optimization
@@ -189,6 +197,7 @@ def train(config):
             ##############################################################################
 
             ######################### Discriminator optimization #########################
+            d_loss = None
             if (step_count >= discriminator_start_step) and train_with_discriminator:
                 fake = output
                 disc_fake_pred = discriminator(fake.detach())
@@ -202,8 +211,7 @@ def train(config):
                                                            device=disc_real_pred.device))
                 
                 d_loss = train_cfg['discriminator_weight'] * (disc_fake_loss + disc_real_loss) / 2
-
-                d_losses.append(d_loss.item())
+                ep_d_loss = online_running_mean(ep_d_loss, d_loss.item(), step_count+1)
 
                 # average per step
                 d_loss = d_loss / steps_per_optimization
@@ -262,7 +270,7 @@ def train(config):
                     "g_loss" :              g_loss,
                 }
             
-            if len(d_losses) > 0:
+            if d_loss is not None:
                 logs["d_loss"] = d_loss
 
             if logs_val is not None:
@@ -277,14 +285,14 @@ def train(config):
 
         ################################### logging ##################################
         logs = {"epoch" :                     epoch_idx + 1,
-                "epoch_reconstruction_loss" : np.mean(reconstruction_losses),
-                "epoch_lpips_loss" :          np.mean(lpips_losses),
-                "epoch_codebook_loss" :       np.mean(codebook_losses),
-                "epoch_g_loss" :              np.mean(g_losses),
+                "epoch_reconstruction_loss" : ep_rec_loss,
+                "epoch_lpips_loss" :          ep_lpips_loss,
+                "epoch_codebook_loss" :       ep_codebook_loss,
+                "epoch_g_loss" :              ep_g_loss,
                 }
         
-        if len(d_losses) > 0:
-            logs["epoch_d_loss"] = np.mean(d_losses)
+        if ep_d_loss > 0:
+            logs["epoch_d_loss"] = ep_d_loss
         
         # wandb logging
         wandb_run.log(data=logs)
