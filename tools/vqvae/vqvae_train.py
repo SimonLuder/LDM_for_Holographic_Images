@@ -226,6 +226,10 @@ def train(config):
                     optimizer_d.zero_grad(set_to_none=True)
             ##############################################################################
 
+            # free cached GPU memory every 500 optimizer steps
+            if (step_count % (500 * steps_per_optimization) == 0):
+                torch.cuda.empty_cache()
+
             ################################ model saving ################################
             if step_count % train_cfg["autoencoder_ckpt_steps"] == 0:
 
