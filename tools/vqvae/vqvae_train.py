@@ -193,7 +193,8 @@ def train(config):
             # generator optimization step
             if (step_count % steps_per_optimization == 0) or (step_count == (len(dataloader) - 1)):
                 optimizer_g.step()
-                optimizer_g.zero_grad()
+                optimizer_g.zero_grad(set_to_none=True)
+
             ##############################################################################
 
             ######################### Discriminator optimization #########################
@@ -222,7 +223,7 @@ def train(config):
                 # discriminator optimization step
                 if (step_count % steps_per_optimization == 0) or (step_count == (len(dataloader) - 1)):
                     optimizer_d.step()
-                    optimizer_d.zero_grad()
+                    optimizer_d.zero_grad(set_to_none=True)
             ##############################################################################
 
             ################################ model saving ################################

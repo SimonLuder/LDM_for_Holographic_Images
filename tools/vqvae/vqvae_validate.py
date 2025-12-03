@@ -117,7 +117,8 @@ def validate(config, model=None, model_ckpt=None, step_count=0):
                 im_lpips = im_lpips.repeat(1,3,1,1)
                 out_lpips = out_lpips.repeat(1,3,1,1)
 
-            lpips_loss = train_cfg['perceptual_weight'] * torch.mean(lpips_model(out_lpips, im_lpips))
+            with torch.no_grad():
+                lpips_loss = train_cfg['perceptual_weight'] * torch.mean(lpips_model(out_lpips, im_lpips))
             lpips_losses.append(train_cfg['perceptual_weight'] * lpips_loss.item())
 
 
