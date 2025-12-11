@@ -33,7 +33,7 @@ class CLIPImageEmbedding(nn.Module):
         
         self.device = device
         self.clip_encoder, _ = clip.load(name=model_name, device=device)
-        self.embedding_dim = self.get_embedding_dim()
+        self.embedding_dim = self.clip_encoder.visual.output_dim
         self.fully_connected = nn.Sequential(
             nn.Linear(self.embedding_dim, out_dim),
             nn.SiLU(),
@@ -46,18 +46,3 @@ class CLIPImageEmbedding(nn.Module):
             x = self.clip_encoder.encode_image(x).type(torch.float32)
         emb = self.fully_connected(x)
         return emb
-    
-    def get_embedding_dim(self):
-        """
-        Returns the embedding dimension of the CLIP model.
-
-        Returns:
-        int: The embedding dimension.
-        """
-        # Create a dummy input tensor
-        dummy_input = torch.randn(1, 3, 224, 224).to(self.device)
-        
-        # Pass the dummy input through the clip_encoder to get the embedding size
-        with torch.no_grad():
-            embedding_dim = self.clip_encoder.encode_image(dummy_input).size(1)
-            return embedding_dim

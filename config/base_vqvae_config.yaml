@@ -1,7 +1,7 @@
-name: 'vqvae_8_512'
+name : 'vqvae_8_512'
 
-dataset: # Dataset configuration
-  root: "Z:/marvel/marvel-fhnw/data/"                           # root folder of the dataset
+dataset : # Dataset configuration
+  root : "Z:/marvel/marvel-fhnw/data/"                           # root folder of the dataset
   img_channels : 1                                              # grayscale images
   img_size : 200                                                # original image size
   img_interpolation : 256                                       # size after interpolation or "Null" 
@@ -11,7 +11,7 @@ dataset: # Dataset configuration
   filenames : rec_path                                          # column name containing filenames
   img_path : img_path                                           # column name containing absolute or relative image path from root
 
-autoencoder: # VQ-VAE architecture
+autoencoder : # VQ-VAE architecture
   z_channels : 8                                                # latent dimension    
   codebook_size : 512                                           # number of distinct codebook vectors
   down_channels : [64, 128, 256, 256]                           # channels in each downsampling blocks
@@ -27,8 +27,8 @@ autoencoder: # VQ-VAE architecture
 vqvae_train : # VQ-VAE training parameters
   seed: 42
   ckpt_folder : 'checkpoints'
-  autoencoder_lr: 0.00005
-  autoencoder_epochs : 5
+  autoencoder_lr : 0.00005
+  autoencoder_epochs : 2
   autoencoder_batch_size : 8
   autoencoder_steps_per_optimization : 8
   autoencoder_img_save_steps : 10000
