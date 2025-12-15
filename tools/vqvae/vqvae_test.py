@@ -6,7 +6,6 @@ from pathlib import Path
 
 import torch
 from torch.utils.data import DataLoader
-import torchvision
 from torchmetrics.image.lpip import LearnedPerceptualImagePatchSimilarity as LPIPS
 
 # add parent dir to path
@@ -111,8 +110,6 @@ def test(config):
                 output = torch.clamp(output, -1., 1.)
                 output = (output + 1) / 2
                 save_images_batch(output, filenames, save_dir=images_save_dir)
-
-            break
 
 
         logs = {"test_reconstructon_loss"    : reconstruction_losses,
