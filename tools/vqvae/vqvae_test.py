@@ -3,6 +3,7 @@ import sys
 import argparse
 from tqdm import tqdm
 from pathlib import Path
+from datetime import datetime
 
 import torch
 from torch.utils.data import DataLoader
@@ -30,8 +31,15 @@ def test(config):
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-    images_save_dir = os.path.join(train_cfg['ckpt_folder'], run_name, "test", "images")
-    log_save_name = os.path.join(train_cfg['ckpt_folder'], run_name, "test", "test_logs.json")
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    dataset_name = os.path.splitext(os.path.basename(dataset_cfg["labels_test"]))[0]
+
+    images_save_dir = os.path.join(train_cfg['ckpt_folder'], run_name, "test", 
+                                   f"{dataset_name}_{timestamp}", "images"
+    )
+    log_save_name = os.path.join(train_cfg['ckpt_folder'], run_name, "test", 
+                                 f"{dataset_name}_{timestamp}", "test_logs.json"
+    )
 
     # create checkpoint paths
     Path(images_save_dir).mkdir(parents=True, exist_ok=True)
