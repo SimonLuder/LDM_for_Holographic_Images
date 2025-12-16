@@ -138,3 +138,11 @@ def save_sample_images(input_img, output_img, filepath):
 def online_running_mean(mu, x, step):
     mu += (x - mu) / step
     return mu
+
+
+def get_image_encoder_names(condition_config):
+    image_encoders = []
+    for name, cfg in condition_config["encoders"].items():
+        if cfg.get("type") == "image" and name in condition_config["enabled"]:
+            image_encoders.append(name)
+    return image_encoders
