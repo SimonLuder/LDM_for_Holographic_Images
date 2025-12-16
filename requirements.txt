@@ -11,3 +11,6 @@ git+https://github.com/openai/CLIP.git
 
 # Poleno Dataset
 git+https://github.com/SimonLuder/Pollen_Datasets.git
+
+# Poleno BYOL
+git+https://github.com/SimonLuder/BYOL_Representations_for_Holographic_Pollen.git
