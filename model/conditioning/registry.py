@@ -1,7 +1,8 @@
 from __future__ import annotations
-from typing import Callable, Dict, Any
 import torch.nn as nn
-from .embeddings import MLP
+from byol_poleno.model.encoders import BYOLPolenoEmbedding
+from typing import Callable, Dict, Any
+from .encoders import MLP, CLIPImageEmbedding
 from .wrapper import ConditionEmbeddingWrapper
 
 # ------------------------------------------------------------------ #
@@ -46,7 +47,7 @@ def build_encoder_from_registry(wrapper_out_dim, cond_cfg, device="cpu"):
     return context_encoder
 
 # ------------------------------------------------------------------ #
-# Registry
+# Encoder Registry
 
 EncoderBuilder = Callable[[Dict[str, Any]], nn.Module]
 
@@ -85,8 +86,28 @@ def build_mlp(params: Dict[str, Any]) -> nn.Module:
 def build_identity(params: Dict[str, Any]) -> nn.Module:
     return nn.Identity() # expects input already in desired out_dim
 
-# @register_encoder("clip_image")
-# def build_clip_image(params: Dict[str, Any]) -> nn.Module:
-#     out_dim = params["out_dim"]
-#     pretrained = params.get("pretrained")
-#     return CLIPImageEncoder(out_dim=out_dim, pretrained=pretrained)
+@register_encoder("clip_image")
+def build_clip_image(params: Dict[str, Any]) -> nn.Module:
+    out_dim    = params["out_dim"]
+    model_name = params.get("model_name", "ViT-B/32")
+    device     = params.get("device", "cpu")
+    return CLIPImageEmbedding(
+        out_dim=out_dim,
+        model_name=model_name,
+        device=device
+    )
+
+@register_encoder("byol_image")
+def build_byol_encoder(params: Dict[str, Any]) -> nn.Module:
+    backbone   = params["backbone"]
+    ckpt_path  = params["weights"]
+    emb_layer  = params["emb_layer"]
+    out_dim    = params["out_dim"]
+    device     = params.get("device", "cpu")
+    return BYOLPolenoEmbedding(
+        ckpt_path=ckpt_path,
+        emb_layer=emb_layer,
+        out_dim=out_dim,
+        backbone=backbone,
+        
+    )
