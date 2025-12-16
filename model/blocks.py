@@ -7,9 +7,6 @@ class DownBlock(nn.Module):
         1. Resnet block with time embedding
         2. Attention block
         3. Down sampling
-
-    Args:
-        nn (_type_): _description_
     """
 
     def __init__(self, in_channels, out_channels, t_emb_dim, down_sample, 

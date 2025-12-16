@@ -25,20 +25,26 @@ from model.ddpm import Diffusion as DDPMDiffusion
 from model.discriminator import DiffusionPatchGanDiscriminator
 from utils.wandb import WandbManager
 from utils.config import load_config
+from utils.train_test_utils import get_transforms
 from .ldm_validate import validate
 from pollen_datasets.poleno import HolographyImageFolder
 
 
 
-def train(config_path):
+def train(config):
 
     # load configuration
-    config = load_config(config_path)
+    run_name                = config['name']
+    config_path             = config['config_path']
     dataset_cfg             = config['dataset']
     condition_cfg           = config['conditioning']
     ddpm_cfg                = config['ddpm']
-    autoencoder_model_cfg   = config['autoencoder']
+    autoencoder_cfg         = config['autoencoder']
     train_cfg               = config['ldm_train']
+    vae_model_cfg           = load_config(autoencoder_cfg["config_file"])["autoencoder"]
+
+    ldm_ckpt_name = train_cfg['ldm_ckpt_name']
+    discriminator_ckpt_name = train_cfg['ldm_discriminator_ckpt_name']
 
     train_with_discriminator = train_cfg['ldm_discriminator_weight'] > 0
     train_with_perceptual_loss = train_cfg['ldm_perceptual_weight'] > 0
@@ -47,33 +53,22 @@ def train(config_path):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     # setup WandbManager
-    wandb_manager = WandbManager(project="MSE_P9_LDM", run_name=train_cfg['ldm_ckpt_name']  + "_ldm", config=config)
+    wandb_manager = WandbManager(project="MSE_P9_LDM", run_name=run_name, config=config)
     # init run
     wandb_run = wandb_manager.get_run()
 
     # create checkpoints and sample paths
-    Path(os.path.join(train_cfg['task_name'], train_cfg['ldm_ckpt_name'])).mkdir(parents=True, exist_ok=True)  
-    Path(os.path.join(train_cfg['task_name'], train_cfg['ldm_discriminator_ckpt_name'])).mkdir(parents=True, exist_ok=True)   
+    Path(os.path.join(train_cfg['ckpt_folder'], run_name, ldm_ckpt_name)).mkdir(parents=True, exist_ok=True)  
+    Path(os.path.join(train_cfg['ckpt_folder'], run_name, discriminator_ckpt_name)).mkdir(parents=True, exist_ok=True)   
 
     # copy config to checkpoint folder
-    shutil.copyfile(config_path, os.path.join(train_cfg['task_name'], 
-                                              train_cfg['ldm_ckpt_name'], 
+    shutil.copyfile(config_path, os.path.join(train_cfg['ckpt_folder'], 
+                                              run_name,
                                               os.path.basename(config_path)))
 
     ###################################### data ######################################
-    transforms_list = [torchvision.transforms.ToTensor()]
-
-    if dataset_cfg.get("img_interpolation"):
-        transforms_list.append(
-            torchvision.transforms.Resize((dataset_cfg["img_interpolation"], 
-                                           dataset_cfg["img_interpolation"]),
-                                           interpolation = torchvision.transforms.InterpolationMode.BILINEAR))
-
-    transforms_list.append(
-        torchvision.transforms.Normalize((0.5) * dataset_cfg["img_channels"], 
-                                         (0.5) * dataset_cfg["img_channels"]))
-
-    transforms = torchvision.transforms.Compose(transforms_list)
+    # Transforms
+    transforms = get_transforms(dataset_cfg)
 
     # Dataset
     dataset = HolographyImageFolder(root=dataset_cfg["root"], 
@@ -96,18 +91,14 @@ def train(config_path):
         latents_available = False
 
     if not latents_available:
-
         print('Loading vqvae model as no latents found')
-        vae = VQVAE(img_channels=dataset_cfg['img_channels'], config=autoencoder_model_cfg).to(device)
+        vae = VQVAE(img_channels=dataset_cfg['img_channels'], config=vae_model_cfg).to(device)
         vae.eval()
 
-        # # Load VQVAE weights from checkpoint                                              TODO Comment in
-        # vae_ckpt_path = os.path.join(train_cfg['task_name'],
-        #                              train_cfg['vqvae_ckpt_dir'],
-        #                              train_cfg['vqvae_ckpt_model']
-        #                              )
+        # Load VQVAE weights from checkpoint
+        vae_ckpt_path = autoencoder_cfg["weights"]
         
-        # vae.load_state_dict(torch.load(vae_ckpt_path, map_location=device))
+        vae.load_state_dict(torch.load(vae_ckpt_path, map_location=device))
         print('Loaded autoencoder checkpoint')
         
         for param in vae.parameters():
@@ -130,7 +121,7 @@ def train(config_path):
 
     ##################################### u-net ######################################
     # UNet
-    model = UNet(img_channels=autoencoder_model_cfg['z_channels'], 
+    model = UNet(img_channels=vae_model_cfg['z_channels'], 
                  model_config=ddpm_cfg,
                  context_encoder=context_encoder).to(device)
     model.train()
@@ -142,7 +133,7 @@ def train(config_path):
     # discriminator model
     if train_with_discriminator:
 
-        discriminator = DiffusionPatchGanDiscriminator(img_channels=autoencoder_model_cfg['z_channels']).to(device)
+        discriminator = DiffusionPatchGanDiscriminator(img_channels=vae_model_cfg['z_channels']).to(device)
         discriminator.train()
 
         optimizer_d = Adam(discriminator.parameters(), lr=train_cfg['ldm_disc_lr'])
@@ -156,12 +147,12 @@ def train(config_path):
     
     # Load Diffusion Process
     if dataset_cfg.get('img_interpolation'):
-        img_size = dataset_cfg['img_interpolation'] // 2 ** sum(autoencoder_model_cfg['down_sample'])
+        img_size = dataset_cfg['img_interpolation'] // 2 ** sum(vae_model_cfg['down_sample'])
     else:
-        img_size = dataset_cfg['img_size'] // 2 ** sum(autoencoder_model_cfg['down_sample'])
+        img_size = dataset_cfg['img_size'] // 2 ** sum(vae_model_cfg['down_sample'])
     
     diffusion = DDPMDiffusion(img_size=img_size, 
-                              img_channels=autoencoder_model_cfg['z_channels'],
+                              img_channels=vae_model_cfg['z_channels'],
                               noise_schedule="linear", 
                               beta_start=train_cfg["ldm_beta_start"], 
                               beta_end=train_cfg["ldm_beta_end"],
@@ -266,7 +257,7 @@ def train(config_path):
                 optimizer.step()
                 optimizer.zero_grad()
 
-            ######################## discriminator ########################
+            ############################# discriminator #################################
             
             if (step_count >= discriminator_start_step) and train_with_discriminator:
 
@@ -295,13 +286,10 @@ def train(config_path):
                     optimizer_d.step()
                     optimizer_d.zero_grad()
 
-            ###############################################################
-
-            ################################# validation #################################
+            ################################# validation ################################
             logs_val = None
             if (step_count % train_cfg["ldm_val_steps"] == 0) and (step_count >= train_cfg["ldm_val_start"]):
-                logs_val = validate(config_path=config_path, model=model, vae=vae, diffusion=diffusion)
-            #############################################################################
+                logs_val = validate(config=config, model=model, vae=vae, diffusion=diffusion)
 
             pbar.set_postfix(Loss=loss.item())
             step_count += 1
@@ -315,23 +303,31 @@ def train(config_path):
             ################################ model saving ################################
             if step_count % train_cfg["ldm_ckpt_steps"] == 0:
 
-                torch.save(model.state_dict(), os.path.join(train_cfg['task_name'],
-                                                            train_cfg['ldm_ckpt_name'],
-                                                            "latest.pth"))
-                        
-                torch.save(model.state_dict(), os.path.join(train_cfg['task_name'],
-                                                            train_cfg['ldm_ckpt_name'],
-                                                            f"{step_count}.pth"))
+                torch.save(model.state_dict(), os.path.join(train_cfg['ckpt_folder'], 
+                                                            run_name, 
+                                                            ldm_ckpt_name, 
+                                                            "latest.pth")
+                )
+
+                torch.save(model.state_dict(), os.path.join(train_cfg['ckpt_folder'],
+                                                            run_name,
+                                                            ldm_ckpt_name,
+                                                            f"{step_count}.pth")
+                )
                 
                 if train_with_discriminator:
     
-                    torch.save(discriminator.state_dict(), os.path.join(train_cfg['task_name'],
-                                                                train_cfg['ldm_discriminator_ckpt_name'],
-                                                                "latest.pth"))
+                    torch.save(discriminator.state_dict(), os.path.join(train_cfg['ckpt_folder'],
+                                                                        run_name, 
+                                                                        discriminator_ckpt_name, 
+                                                                        "latest.pth")
+                    )
                             
-                    torch.save(discriminator.state_dict(), os.path.join(train_cfg['task_name'],
-                                                                train_cfg['ldm_discriminator_ckpt_name'],
-                                                                f"{step_count}.pth"))
+                    torch.save(discriminator.state_dict(), os.path.join(train_cfg['ckpt_folder'],
+                                                                        run_name, 
+                                                                        discriminator_ckpt_name,
+                                                                        f"{step_count}.pth")
+                    )
 
 
 if __name__ == "__main__":
@@ -341,4 +337,6 @@ if __name__ == "__main__":
                         default='config/base_ldm_config.yaml', type=str)
     args = parser.parse_args()
 
-    train(args.config_path)
+    config = load_config(args.config_path)
+
+    train(config)

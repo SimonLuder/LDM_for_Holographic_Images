@@ -2,6 +2,7 @@ import os
 import sys
 import argparse
 from pathlib import Path
+from datetime import datetime
 from sklearn.decomposition import PCA
 
 import torch
@@ -20,52 +21,46 @@ from model.conditioning.registry import build_encoder_from_registry
 from model.ddpm import Diffusion as DDPMDiffusion
 from utils.config import load_config
 from pollen_datasets.poleno import HolographyImageFolder
-from utils.train_test_utils import save_images_batch, save_tensors_batch
+from utils.train_test_utils import save_images_batch, save_tensors_batch, get_transforms
 
 
-def test(config_path):
+def test(config):
 
-    config = load_config(config_path)
+    run_name                = config['name']
     dataset_cfg             = config['dataset']
     condition_cfg           = config['conditioning']
     ddpm_model_cfg          = config['ddpm']
-    autoencoder_model_cfg   = config['autoencoder']
+    autoencoder_cfg         = config['autoencoder']
     train_cfg               = config['ldm_train']
     inference_cfg           = config['ddpm_inference']
+    vae_model_cfg           = load_config(autoencoder_cfg["config_file"])["autoencoder"]
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-    images_save_dir = os.path.join(train_cfg['task_name'], train_cfg['ldm_ckpt_name'], "test", "images")
-    latents_save_dir = os.path.join(train_cfg['task_name'], train_cfg['ldm_ckpt_name'], "test", "latents")
+    ldm_ckpt_name = train_cfg['ldm_ckpt_name']
+
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    dataset_name = os.path.splitext(os.path.basename(dataset_cfg["labels_test"]))[0]
+
+    images_save_dir = os.path.join(train_cfg['ckpt_folder'], run_name, "test", f"{dataset_name}_{timestamp}", "images")
+    latents_save_dir = os.path.join(train_cfg['ckpt_folder'], run_name, "test", f"{dataset_name}_{timestamp}", "latents")
 
     Path(images_save_dir).mkdir(parents=True, exist_ok=True)
     Path(latents_save_dir).mkdir(parents=True, exist_ok=True)
 
-    ################################### transforms ###################################
-    transforms_list = []
-
-    transforms_list.append(torchvision.transforms.ToTensor())
-
-    if dataset_cfg.get("img_interpolation"):
-        transforms_list.append(torchvision.transforms.Resize((dataset_cfg["img_interpolation"], 
-                                                              dataset_cfg["img_interpolation"]),
-                                                              interpolation = torchvision.transforms.InterpolationMode.BILINEAR))
-
-    transforms_list.append(torchvision.transforms.Normalize((0.5) * dataset_cfg["img_channels"], 
-                                                            (0.5) * dataset_cfg["img_channels"]))
-
-    transforms = torchvision.transforms.Compose(transforms_list)
-
     ###################################### data ######################################
 
-    #dataset
+    # Transforms
+    transforms = get_transforms(dataset_cfg)
+
+    # Dataset
     dataset = HolographyImageFolder(root=dataset_cfg["root"], 
                                     transform=transforms, 
                                     dataset_cfg=dataset_cfg,
                                     cond_cfg=condition_cfg,
                                     labels=dataset_cfg.get("labels_test"))
 
-    # dataloader
+    # Dataloader
     dataloader = DataLoader(dataset,
                             batch_size=train_cfg['ldm_batch_size'],
                             shuffle=True)
@@ -73,14 +68,10 @@ def test(config_path):
     
     ################################## autoencoder ###################################
     # Load Autoencoder
-    vae = VQVAE(img_channels=dataset_cfg['img_channels'], config=autoencoder_model_cfg).to(device)
+    vae = VQVAE(img_channels=dataset_cfg['img_channels'], config=vae_model_cfg).to(device)
     vae.eval()
 
-    vae_ckpt_path = os.path.join(train_cfg['task_name'],
-                                 train_cfg['vqvae_ckpt_dir'],
-                                 train_cfg['vqvae_ckpt_model']
-                                 )
-
+    vae_ckpt_path = autoencoder_cfg["weights"]
     vae.load_state_dict(torch.load(vae_ckpt_path, map_location=device))
     print(f'Loaded autoencoder checkpoint from {vae_ckpt_path}')
 
@@ -106,13 +97,14 @@ def test(config_path):
 
     ##################################### u-net ######################################
     # Load UNet
-    model = UNet(img_channels=autoencoder_model_cfg['z_channels'], 
+    model = UNet(img_channels=vae_model_cfg['z_channels'], 
                  model_config=ddpm_model_cfg, 
                  context_encoder=context_encoder).to(device)
     model.eval()
 
-    unet_ckpt_path = os.path.join(train_cfg['task_name'], 
-                                  train_cfg['ldm_ckpt_name'], 
+    unet_ckpt_path = os.path.join(train_cfg['ckpt_folder'], 
+                                  run_name,
+                                  ldm_ckpt_name, 
                                   inference_cfg["ddpm_model_ckpt"]
                                   )
        
@@ -122,12 +114,12 @@ def test(config_path):
     ################################### diffusion ####################################
     # init diffusion class
     if dataset_cfg.get('img_interpolation'):
-        img_size = dataset_cfg['img_interpolation'] // 2 ** sum(autoencoder_model_cfg['down_sample'])
+        img_size = dataset_cfg['img_interpolation'] // 2 ** sum(vae_model_cfg['down_sample'])
     else:
-        img_size = dataset_cfg['img_size'] // 2 ** sum(autoencoder_model_cfg['down_sample'])
+        img_size = dataset_cfg['img_size'] // 2 ** sum(vae_model_cfg['down_sample'])
  
     diffusion = DDPMDiffusion(img_size=img_size, 
-                              img_channels=autoencoder_model_cfg['z_channels'],
+                              img_channels=vae_model_cfg['z_channels'],
                               noise_schedule="linear", 
                               beta_start=train_cfg["ldm_beta_start"], 
                               beta_end=train_cfg["ldm_beta_end"],
@@ -212,4 +204,6 @@ if __name__ == "__main__":
                         default='config/base_ldm_config.yaml', type=str)
     args = parser.parse_args()
 
-    test(args.config_path)
+    config = load_config(args.config_path)
+
+    test(config)

@@ -14,46 +14,36 @@ parent_dir = os.path.dirname(current_dir)
 sys.path.append(parent_dir)
 
 from utils.config import load_config
+from utils.train_test_utils import get_transforms
 from pollen_datasets.poleno import HolographyImageFolder
 
 
-def validate(config_path, model=None, vae=None, diffusion=None, model_ckpt=None):
+def validate(config, model=None, vae=None, diffusion=None, model_ckpt=None):
 
     global dataloader_val
 
-    config = load_config(config_path)
+    run_name                = config['name']
     dataset_cfg             = config['dataset']
     condition_cfg           = config['conditioning']
     ddpm_model_cfg          = config['ddpm']
-    autoencoder_model_cfg   = config['autoencoder']
     train_cfg               = config['ldm_train']
     inference_cfg           = config["ddpm_inference"]
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     ###################################### data ######################################
     if not "dataloader_val" in globals():
-        transforms_list = []
 
-        transforms_list.append(torchvision.transforms.ToTensor())
+        # Transforms
+        transforms = get_transforms(dataset_cfg)
 
-        if dataset_cfg.get("img_interpolation"):
-            transforms_list.append(torchvision.transforms.Resize((dataset_cfg["img_interpolation"], 
-                                                                dataset_cfg["img_interpolation"]),
-                                                                interpolation = torchvision.transforms.InterpolationMode.BILINEAR))
-
-        transforms_list.append(torchvision.transforms.Normalize((0.5) * dataset_cfg["img_channels"], 
-                                                                (0.5) * dataset_cfg["img_channels"]))
-
-        transforms = torchvision.transforms.Compose(transforms_list)
-
-        # dataset
+        # Dataset
         dataset_val = HolographyImageFolder(root=dataset_cfg["root"], 
                                     transform=transforms, 
                                     dataset_cfg=dataset_cfg,
                                     cond_cfg=condition_cfg,
                                     labels=dataset_cfg.get("labels_val"))
 
-        # dataloader
+        # Dataloader
         dataloader_val = DataLoader(dataset_val,
                                 batch_size=train_cfg['ldm_batch_size'],
                                 shuffle=False)
@@ -109,4 +99,6 @@ if __name__ == "__main__":
                         default='config/base_ldm_config.yaml', type=str)
     args = parser.parse_args()
 
-    validate(args.config_path)
+    config = load_config(args.config_path)
+
+    validate(config)
