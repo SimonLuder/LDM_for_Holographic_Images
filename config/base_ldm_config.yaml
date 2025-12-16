@@ -6,11 +6,19 @@ dataset: # Dataset configuration
   img_size : 200                                                  # original image size
   img_interpolation : 256                                         # size after interpolation or "Null"
   labels_train : ./data/final/poleno/basic_train.csv              # training labels
-  labels_val : ./data/final/poleno/basic_val.csv                  # validation labels
+  labels_val : ./data/final/poleno/basic_val_20.csv               # validation labels
   labels_test : ./data/final/poleno/basic_test.csv                # test labels
   filenames : rec_path                                            # column name containing filenames
   img_path : img_path                                             # column name containing absolute or relative image path from root
   particle_id : event_id                                          # how to identify the same particle object
+
+transforms: # Data transformations
+  transform1 : 
+    name: "base_transform"
+    img_interpolation : 256
+  transform2 : 
+    name: "clip_image_transform"
+    img_interpolation : 224
 
 ddpm: # DDPM architecture
   down_channels : [ 256, 384, 512, 768 ]                          # channels in each downsampling blocks  
@@ -30,21 +38,12 @@ ddpm: # DDPM architecture
   img_emb_dim : 256                                               # image embedding dimension
   cond_insert_type : "concatenation"                              # how to combine conditional and time embedding (additive, concatenation or crossattention)
 
-autoencoder: # VQ-VAE architecture
-  z_channels : 8                                                  # latent dimension    
-  codebook_size : 512                                             # number of distinct codebook vectors
-  down_channels : [64, 128, 256, 256]                             # channels in each downsampling blocks
-  mid_channels : [256, 256]                                       # channels in the middle blocks 
-  down_sample : [True, True, True]                                # whether to downsample at each block  
-  attns : [False, False, False]                                   # whether to use attention at each block
-  norm_channels: 32                                               # nr of channels for normalization
-  num_heads : 4                                                   # nr of attention heads
-  num_down_layers : 2                                             # nr of resnet layers in each downsampling block
-  num_mid_layers : 2                                              # nr of resnet layers in the middle block
-  num_up_layers : 2                                               # nr of resnet layers in each upsampling block
+autoencoder: # VQ-VAE
+  config_file: ./checkpoints/vqvae_8_512/base_vqvae_config.yaml
+  weights: ./checkpoints/vqvae_8_512/autoencoder/latest.pth
 
 conditioning: # Conditional encoders
-  enabled: "regionprops+class"                                    # add encoders with a "+" sign (e.g. "regionprops+class") or "unconditional"
+  enabled: "clip_image"                                           # add encoders with a "+" sign (e.g. "regionprops+class") or "unconditional"
   encoders:                                                       # define ecoders within here
 
     class:
@@ -79,13 +78,25 @@ conditioning: # Conditional encoders
         - perimeter_crofton
         - solidity
 
-    image:
+    clip_image:
       type: image
-      encoder: CLIPImageEncoder
+      encoder: clip_image
       params:
         out_dim: 256
-        pretrained: "openai/clip-vit-base-patch32"
-      use_columns: cond_img_path  # path to conditioning image
+        model_name: "ViT-B/32"
+      use_columns: Null
+      condition_fn: dual_image_indices
+
+    byol_image:
+      type: image
+      encoder: byol_image
+      params:
+        out_dim: 512
+        backbone: resnet50
+        weights: "C:/Users/simon/Documents/GitHub/BYOL_Representations_for_Holographic_Pollen/checkpoints/byol_lightning_20251202_121403/best_epoch=21-step=5240-val_loss=0.0887.ckpt"
+        emb_layer: "fc"
+      use_columns: Null
+      condition_fn: dual_image_indices
 
     rotation:
       type: angle
@@ -97,8 +108,7 @@ conditioning: # Conditional encoders
   
 ldm_train : # LDM training parameters
   seed : 42
-  # task_name : 'holographic_pollen'
-  ckpt_folder : 'checkpoints'
+  ckpt_folder : 'checkpoints'                                     # everythig saved during the run is here
   ldm_lr :  0.00005                                               # ldm learning rate
   ldm_disc_lr : 0.00005                                           # discriminator learning rate
   ldm_epochs : 15                                                 # nr of epochs to train
@@ -115,10 +125,8 @@ ldm_train : # LDM training parameters
   ldm_discriminator_start_step : -1                               # start the discriminator after n batches (-1 means no discriminator)
   ldm_discriminator_loss : BCEWithLogits                          # discrminator loss criterion
   ldm_discriminator_weight : 0                                    # weight of the discriminator loss
-  ldm_ckpt_name : 'ldm_clstbl_8_512'                              # name of the model 
-  ldm_discriminator_ckpt_name : 'ldm_discriminator_clstbl_8_512'  # name of the discriminator checkpoint
-  vqvae_ckpt_dir : vqvae_autoencoder_8_512                        # replace with the desired vqvae model
-  vqvae_ckpt_model: 'latest.pth'
+  ldm_ckpt_name : 'unet'                                          # name of the model 
+  ldm_discriminator_ckpt_name : 'discriminator'                   # name of the discriminator checkpoint
   vqvae_latents_representations : 'vqvae_latents_representations_8_512'
 
 ddpm_validation : 
