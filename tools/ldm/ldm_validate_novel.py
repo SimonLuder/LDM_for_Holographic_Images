@@ -48,10 +48,14 @@ def validate(config, model=None, vae=None, diffusion=None, model_ckpt=None):
         )
 
         # Dataloader
-        dataloader_val = DataLoader(dataset_val,
-                                batch_size=train_cfg['ldm_batch_size'],
-                                pin_memory=True,
-                                shuffle=False)
+        dataloader_val = DataLoader(
+            dataset_val,
+            batch_size=train_cfg['ldm_batch_size'],
+            num_workers=train_cfg.get('num_workers', 4),
+            prefetch_factor=2,
+            pin_memory=True,
+            shuffle=False
+        )
         
     # Conditioning
     if condition_cfg["enabled"] == "unconditional":
@@ -97,9 +101,6 @@ def validate(config, model=None, vae=None, diffusion=None, model_ckpt=None):
 
             # predict noise
             noise_pred = model(x_t, t, cond1)
-
-            # create image less noisy
-            x_t_neg_1_pred = diffusion.denoising_step(x_t, t, noise_pred)
 
             # reconstruction loss
             rec_loss = criterion(noise_pred, noise)

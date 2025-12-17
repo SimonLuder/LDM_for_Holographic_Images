@@ -87,6 +87,17 @@ conditioning: # Conditional encoders
       use_columns: Null
       condition_fn: dual_image_indices
 
+    byol_image:
+      type: image
+      encoder: byol_image
+      params:
+        out_dim: 512
+        backbone: resnet50
+        weights: "checkpoints/to_be_done/last.ckpt"
+        emb_layer: "fc"
+      use_columns: Null
+      condition_fn: dual_image_indices
+
     rotation:
       type: angle
       encoder: Identity
@@ -98,9 +109,10 @@ conditioning: # Conditional encoders
 ldm_train : # LDM training parameters
   seed : 42
   ckpt_folder : 'checkpoints'                                     # everythig saved during the run is here
+  num_workers : 4                                                 # nr of workers in the dataloader
   ldm_lr :  0.00005                                               # ldm learning rate
   ldm_disc_lr : 0.00005                                           # discriminator learning rate
-  ldm_epochs : 15                                                 # number of epochs to train
+  ldm_epochs : 8                                                  # number of epochs to train
   ldm_batch_size : 8                                              # samples per batch
   ldm_steps_per_optimization : 1                                  # optimize every n batches
   ldm_num_timesteps : 1000                                        # use n timesteps to generate the images

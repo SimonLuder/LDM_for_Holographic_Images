@@ -13,6 +13,8 @@ from torch.utils.data import DataLoader
 import torchvision
 from torchmetrics.image.lpip import LearnedPerceptualImagePatchSimilarity as LPIPS
 
+from pollen_datasets.poleno import PairwiseHolographyImageFolder
+
 # add parent dir to path
 current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir) 
@@ -20,17 +22,15 @@ sys.path.append(parent_dir)
 
 from model.unet_v2 import UNet
 from model.vqvae import VQVAE
-from model.conditioning.registry import build_encoder_from_registry
 from model.ddpm import Diffusion as DDPMDiffusion
 from model.discriminator import DiffusionPatchGanDiscriminator
+from model.conditioning import custom_conditions # required
+from model.conditioning.transforms.registry import get_transforms
+from model.conditioning.registry import build_encoder_from_registry
 from utils.wandb import WandbManager
 from utils.config import load_config
 from utils.train_test_utils import get_image_encoder_names
-from model.conditioning.transforms.registry import get_transforms
 from .ldm_validate_novel import validate
-from model.conditioning import custom_conditions # required
-from pollen_datasets.poleno import PairwiseHolographyImageFolder
-
 
 
 def train(config):
@@ -88,12 +88,16 @@ def train(config):
         labels=dataset_cfg.get("labels_train")
     )
 
-    # dataloader
+    # Dataloader
     print("Initialize Dataloader")
-    dataloader = DataLoader(dataset,
-                            batch_size=train_cfg['ldm_batch_size'],
-                            pin_memory=True,
-                            shuffle=True)
+    dataloader = DataLoader(
+        dataset,
+        batch_size=train_cfg['ldm_batch_size'],
+        num_workers=train_cfg.get('num_workers', 4),
+        prefetch_factor=2,
+        pin_memory=True,
+        shuffle=True
+    )
     
     ################################## autoencoder ###################################
     # Load Autoencoder if latents are not precalculated or are missing
@@ -208,7 +212,11 @@ def train(config):
                 cond1 = None
                 cond2 = None
 
-            print(cond1)
+            # train with discriminator?
+            use_discriminator = (
+                train_with_discriminator
+                and step_count > discriminator_start_step
+            )
 
             # autencode samples
             if not latents_available:
@@ -219,13 +227,17 @@ def train(config):
             t = diffusion.sample_timesteps(im1.shape[0]).to(device)
 
             # noise image
-            x_t, noise, x_t_neg_1 = diffusion.noise_images(im1, t, x_t_neg_1=True)
+            if use_discriminator:
+                x_t, noise, x_t_neg_1 = diffusion.noise_images(im1, t, x_t_neg_1=True)
+            else:
+                x_t, noise = diffusion.noise_images(im1, t, x_t_neg_1=False)
 
             # predict noise
             noise_pred = model(x_t, t, cond1)
 
             # create image less noisy
-            x_t_neg_1_pred = diffusion.denoising_step(x_t, t, noise_pred)
+            if use_discriminator:
+                x_t_neg_1_pred = diffusion.denoising_step(x_t, t, noise_pred)
 
             # reconstruction loss
             loss = criterion(noise_pred, noise)
@@ -240,10 +252,8 @@ def train(config):
 
             # lpips loss
             if train_with_perceptual_loss:
-                lpips_in = torch.clamp(im, -1., 1.)
+                lpips_in = torch.clamp(im1, -1., 1.)
                 lpips_in_pred = torch.clamp(im_pred, -1., 1.)
-                # lpips_in = torch.clamp(x_t_neg_1, -1., 1.)
-                # lpips_in_pred = torch.clamp(x_t_neg_1_pred, -1., 1.)
 
                 if lpips_in.shape[1] == 1:
                     lpips_in = lpips_in.repeat(1,3,1,1)
@@ -264,7 +274,7 @@ def train(config):
                 lpips_losses.append(train_cfg['ldm_perceptual_weight'] * lpips_loss.item())
 
             # discriminator loss (used only from "discriminator_start_step" onwards)
-            if (step_count > discriminator_start_step) and train_with_discriminator:
+            if use_discriminator:
                 disc_fake_pred = discriminator(x_t_neg_1_pred, t)
                 disc_fake_loss = d_criterion(disc_fake_pred, torch.ones(disc_fake_pred.shape,
                                                                         device=disc_fake_pred.device))
@@ -284,7 +294,7 @@ def train(config):
 
             ############################# discriminator #################################
             
-            if (step_count >= discriminator_start_step) and train_with_discriminator:
+            if use_discriminator:
 
                 disc_fake_pred = discriminator(x_t_neg_1_pred.detach(), t)
                 disc_real_pred = discriminator(x_t_neg_1, t)

@@ -109,9 +109,10 @@ conditioning: # Conditional encoders
 ldm_train : # LDM training parameters
   seed : 42
   ckpt_folder : 'checkpoints'                                     # everythig saved during the run is here
+  num_workers : 4                                                 # nr of workers in the dataloader
   ldm_lr :  0.00005                                               # ldm learning rate
   ldm_disc_lr : 0.00005                                           # discriminator learning rate
-  ldm_epochs : 15                                                 # nr of epochs to train
+  ldm_epochs : 8                                                  # nr of epochs to train
   ldm_batch_size : 8                                              # samples per batch
   ldm_steps_per_optimization : 1                                  # optimize every n batches
   ldm_num_timesteps : 1000                                        # use n timesteps to generate the images
