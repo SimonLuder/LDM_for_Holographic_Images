@@ -29,9 +29,7 @@ from model.conditioning.transforms.registry import get_transforms
 from model.conditioning.registry import build_encoder_from_registry
 from utils.wandb import WandbManager
 from utils.config import load_config
-from utils.train_test_utils import get_image_encoder_names, save_checkpoint
-from .ldm_validate_novel import validate
-from model.trainer import NVLDMTrainer
+from model.ldm_trainer import NVLDMTrainer
 
 
 def train(config):
