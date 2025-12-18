@@ -1,7 +1,7 @@
 from typing import Callable, Dict, Any
 import torch
 import torchvision.transforms as T
-
+from functools import partial
 
 def get_transforms(transform_cfg: dict, in_channels: int):
     """
@@ -99,17 +99,9 @@ def build_clip_transform(params: Dict[str, Any]):
     clip_mean = (0.48145466, 0.4578275, 0.40821073)
     clip_std  = (0.26862954, 0.26130258, 0.27577711)
 
-    def ensure_three_channels(x: torch.Tensor) -> torch.Tensor:
-        # x: (C,H,W) or (H,W)
-        if x.ndim == 2:
-            x = x.unsqueeze(0)
-        if x.shape[0] == 1 and img_channels == 1:
-            x = x.repeat(3, 1, 1)
-        return x
-
     transforms_list = [
         T.ToTensor(),
-        T.Lambda(ensure_three_channels),
+        T.Lambda(partial(ensure_three_channels, img_channels=img_channels)),
         T.Resize(
             (img_interpolation, img_interpolation),
             interpolation=T.InterpolationMode.BICUBIC
@@ -118,3 +110,12 @@ def build_clip_transform(params: Dict[str, Any]):
     ]
 
     return T.Compose(transforms_list)
+
+
+def ensure_three_channels(x: torch.Tensor, img_channels: int) -> torch.Tensor:
+        # x: (C,H,W) or (H,W)
+        if x.ndim == 2:
+            x = x.unsqueeze(0)
+        if x.shape[0] == 1 and img_channels == 1:
+            x = x.repeat(3, 1, 1)
+        return x

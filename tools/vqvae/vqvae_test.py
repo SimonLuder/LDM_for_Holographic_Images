@@ -120,7 +120,7 @@ def test(config):
                 save_images_batch(output, filenames, save_dir=images_save_dir)
 
 
-        logs = {"test_reconstructon_loss"    : reconstruction_losses,
+        logs = {"test_reconstruction_loss"   : reconstruction_losses,
                 "test_codebook_loss"         : codebook_losses,
                 "test_lpips_loss"            : lpips_losses,
                 "filenames"                  : sample_filenames,
