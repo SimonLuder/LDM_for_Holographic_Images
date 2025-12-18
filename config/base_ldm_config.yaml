@@ -129,6 +129,7 @@ ldm_train : # LDM training parameters
   ldm_ckpt_name : 'unet'                                          # name of the model 
   ldm_discriminator_ckpt_name : 'discriminator'                   # name of the discriminator checkpoint
   vqvae_latents_representations : 'vqvae_latents_representations_8_512'
+  resume_from_ckpt : checkpoints/ldm_8_512_novel_clip/ckpts/latest.ckpt
 
 ddpm_validation : 
   model_ckpts : ['latest.pth']
