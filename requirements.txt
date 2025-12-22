@@ -5,6 +5,7 @@ matplotlib
 tqdm
 numpy
 torchmetrics==1.7.0
+scikit-learn==1.7.2
 
 # CLIP
 git+https://github.com/openai/CLIP.git
