@@ -18,11 +18,12 @@ sys.path.append(parent_dir)
 from model.unet_v2 import UNet
 from model.vqvae import VQVAE
 from model.conditioning.registry import build_encoder_from_registry
+from model.conditioning import custom_conditions # required
+from model.conditioning.transforms.registry import get_transforms
 from model.ddpm import Diffusion as DDPMDiffusion
 from utils.config import load_config
 from pollen_datasets.poleno import PairwiseHolographyImageFolder
 from utils.train_test_utils import save_images_batch, save_tensors_batch, get_image_encoder_names
-from model.conditioning.transforms.registry import get_transforms
 
 
 def test(config):
@@ -43,9 +44,10 @@ def test(config):
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     dataset_name = os.path.splitext(os.path.basename(dataset_cfg["labels_test"]))[0]
+    ckpt_name = os.path.splitext(os.path.basename(inference_cfg["ddpm_model_ckpt"]))[0]
 
-    images_save_dir = os.path.join(train_cfg['ckpt_folder'], run_name, "test", f"{dataset_name}_{timestamp}", "images")
-    latents_save_dir = os.path.join(train_cfg['ckpt_folder'], run_name, "test", f"{dataset_name}_{timestamp}", "latents")
+    images_save_dir = os.path.join(train_cfg['ckpt_folder'], run_name, "test", f"{ckpt_name}_{dataset_name}_{timestamp}", "images")
+    latents_save_dir = os.path.join(train_cfg['ckpt_folder'], run_name, "test", f"{ckpt_name}_{dataset_name}_{timestamp}", "latents")
 
     Path(images_save_dir).mkdir(parents=True, exist_ok=True)
     Path(latents_save_dir).mkdir(parents=True, exist_ok=True)
@@ -69,7 +71,7 @@ def test(config):
     # Dataloader
     dataloader = DataLoader(dataset,
                             batch_size=train_cfg['ldm_batch_size'],
-                            shuffle=True)
+                            shuffle=False)
     
     
     ################################## autoencoder ###################################
@@ -108,14 +110,15 @@ def test(config):
                  context_encoder=context_encoder).to(device)
     model.eval()
 
-    unet_ckpt_path = os.path.join(train_cfg['ckpt_folder'], 
+    ldm_ckpt_path = os.path.join(train_cfg['ckpt_folder'], 
                                   run_name,
-                                  ldm_ckpt_name, 
+                                  "ckpts", 
                                   inference_cfg["ddpm_model_ckpt"]
                                   )
-       
-    model.load_state_dict(torch.load(unet_ckpt_path, map_location=device))
-    print(f'Loaded unet checkpoint from {unet_ckpt_path}')
+
+    ckpt = torch.load(ldm_ckpt_path, map_location=device)
+    model.load_state_dict(ckpt["model"])
+    print(f'Loaded diffusion model checkpoint from {ldm_ckpt_path}')
 
     ################################### diffusion ####################################
     # init diffusion class
