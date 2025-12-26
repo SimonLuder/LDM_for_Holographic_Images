@@ -151,7 +151,8 @@ class NVLDMTrainer:
             for cond in self.use_condition:
 
                 if cond in self.used_image_encoders:
-                    cond1[cond] = im2
+                    cond1[cond] = im1
+                    cond2[cond] = im2
 
                 cond1[cond] = cond1[cond].to(self.device)
                 cond2[cond] = cond2[cond].to(self.device)
@@ -161,7 +162,7 @@ class NVLDMTrainer:
         else:
             cond1 = None
 
-        return im1, cond1
+        return (im1, im2), (cond1, cond2)
 
 
     def diffusion_forward(self, im1, use_discriminator=False):
@@ -231,7 +232,7 @@ class NVLDMTrainer:
 
     def forward_step(self, batch):
         
-        im1, cond1 = self.prepare_batch(batch)
+        (im1, im2), (cond1, cond2) = self.prepare_batch(batch)
 
         use_disc = (
             self.train_with_discriminator
@@ -240,7 +241,7 @@ class NVLDMTrainer:
 
         x_t, noise, x_t_neg_1, t = self.diffusion_forward(im1, use_disc)
 
-        noise_pred = self.model(x_t, t, cond1)
+        noise_pred = self.model(x_t, t, cond2)
 
         # reconstruction loss
         rec_loss = self.compute_rec_loss(noise, noise_pred)
@@ -360,12 +361,12 @@ class NVLDMTrainer:
 
         with torch.no_grad():
             for batch in tqdm(self.dataloader_val):
-                im1, cond1 = self.prepare_batch(batch)
+                (im1, im2), (cond1, cond2), _ = batch
 
                 x_t, noise, x_t_neg_1, t = self.diffusion_forward(im1)
 
                 # predict noise
-                noise_pred = self.model(x_t, t, cond1)
+                noise_pred = self.model(x_t, t, cond2)
 
                 # reconstruction loss
                 rec_loss = self.criterion(noise_pred, noise)
@@ -378,3 +379,25 @@ class NVLDMTrainer:
         return {
             "val_epoch_reconstructon_loss": float(np.mean(reconstruction_losses))
         }
+    
+    def sample_batch(self, batch, cfg_scale=3, to_uint8=False):
+
+        self.model.eval()
+        if self.vae is not None:
+            self.vae.eval()
+
+        with torch.no_grad():
+            (gt_im1, _), (_, cond2) = self.prepare_batch(batch)
+
+            sampled_latents = self.diffusion.sample(
+                self.model, 
+                condition=cond2, 
+                n=batch.size()[0], 
+                cfg_scale=cfg_scale,
+                to_uint8=to_uint8
+            )
+
+            # upsample with vqvae
+            sampled_imgs = self.vae.decode(sampled_latents)
+
+        return sampled_imgs, gt_im1

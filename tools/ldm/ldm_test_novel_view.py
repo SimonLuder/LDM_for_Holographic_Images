@@ -148,14 +148,15 @@ def test(config):
 
                 # Use image as input condition
                 if cond in used_image_encoders:
-                    cond1[cond] = im2
+                    cond1[cond] = im1
+                    cond2[cond] = im2
 
                 cond1[cond] = cond1[cond].to(device)
                 cond2[cond] = cond2[cond].to(device)
 
 
             img_latent = diffusion.sample(model, 
-                                          condition=cond1, 
+                                          condition=cond2, 
                                           n=train_cfg['ldm_batch_size'], 
                                           cfg_scale=3,
                                           to_uint8=False)
