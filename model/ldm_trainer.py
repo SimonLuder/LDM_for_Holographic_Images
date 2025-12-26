@@ -361,7 +361,8 @@ class NVLDMTrainer:
 
         with torch.no_grad():
             for batch in tqdm(self.dataloader_val):
-                (im1, im2), (cond1, cond2), _ = batch
+                (im1, _), (_, cond2) = self.prepare_batch(batch)
+
 
                 x_t, noise, x_t_neg_1, t = self.diffusion_forward(im1)
 
