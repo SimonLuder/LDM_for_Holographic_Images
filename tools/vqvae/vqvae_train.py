@@ -20,11 +20,13 @@ from torchmetrics.image.lpip import LearnedPerceptualImagePatchSimilarity as LPI
 # sys.path.append(parent_dir)
 
 from model.vqvae import VQVAE
-from utils.config import load_config
-from utils.wandb import WandbManager
-from utils.train_test_utils import get_transforms, save_sample_images, online_running_mean
+from model.conditioning.transforms.registry import get_transforms
 from model.discriminator import PatchGanDiscriminator
 from pollen_datasets.poleno import HolographyImageFolder
+from utils.config import load_config
+from utils.wandb import WandbManager
+from utils.train_test_utils import online_running_mean
+from utils.images import save_sample_images
 from .vqvae_validate import validate
 
 
@@ -36,6 +38,7 @@ def train(config):
     config_path = config['config_path']
     model_cfg = config["autoencoder"]
     dataset_cfg = config["dataset"]
+    transforms_cfg = config["transforms"]
     train_cfg = config["vqvae_train"]
     
     ae_ckpt_name = f"autoencoder"
@@ -72,7 +75,7 @@ def train(config):
         torch.cuda.manual_seed_all(seed)
 
     # transforms
-    transforms = get_transforms(dataset_cfg)
+    transforms = get_transforms(transforms_cfg["transform"], in_channels=dataset_cfg["img_channels"])
 
     # dataset
     dataset = HolographyImageFolder(root=dataset_cfg["root"], 

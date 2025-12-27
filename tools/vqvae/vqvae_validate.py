@@ -17,9 +17,11 @@ parent_dir = os.path.dirname(current_dir)
 sys.path.append(parent_dir)
 
 from model.vqvae import VQVAE
+from model.conditioning.transforms.registry import get_transforms
 from pollen_datasets.poleno import HolographyImageFolder
 from utils.config import load_config
-from utils.train_test_utils import save_json, get_transforms
+from utils.train_test_utils import save_json
+
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -34,6 +36,7 @@ def validate(config, model=None, model_ckpt=None, step_count=0):
 
     run_name = config["name"]
     dataset_cfg = config['dataset']
+    transforms_cfg = config['transforms']
     autoencoder_cfg = config['autoencoder']
     train_cfg = config['vqvae_train']
 
@@ -47,7 +50,7 @@ def validate(config, model=None, model_ckpt=None, step_count=0):
 
     if not "dataloader_val" in globals(): # singleton design pattern
         # transforms
-        transforms = get_transforms(dataset_cfg)
+        transforms = get_transforms(transforms_cfg["transform"], in_channels=dataset_cfg["img_channels"])
 
         #dataset
         dataset_val = HolographyImageFolder(root=dataset_cfg["root"], 

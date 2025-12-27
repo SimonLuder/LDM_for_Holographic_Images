@@ -11,6 +11,11 @@ dataset : # Dataset configuration
   filenames : rec_path                                          # column name containing filenames
   img_path : img_path                                           # column name containing absolute or relative image path from root
 
+transforms: # Data transformations
+  transform : 
+    name: "base_transform"                                      # image transformation name
+    img_interpolation : 256                                     # image size after interpolation or "Null" 
+
 autoencoder : # VQ-VAE architecture
   z_channels : 8                                                # latent dimension    
   codebook_size : 512                                           # number of distinct codebook vectors

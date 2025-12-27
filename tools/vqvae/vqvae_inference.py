@@ -15,9 +15,10 @@ parent_dir = os.path.dirname(current_dir)
 sys.path.append(parent_dir)
 
 from model.vqvae import VQVAE
+from model.conditioning.transforms.registry import get_transforms
 from pollen_datasets.poleno import HolographyImageFolder
 from utils.config import load_config
-from utils.train_test_utils import get_transforms
+
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -25,6 +26,7 @@ def inference(config):
 
     run_name = config["name"]
     dataset_cfg = config['dataset']
+    transforms_cfg = config['transforms']
     autoencoder_cfg = config['autoencoder']
     train_cfg = config['vqvae_train']
     inference_cfg = config["vqvae_inference"]
@@ -34,7 +36,7 @@ def inference(config):
     Path(os.path.join(train_cfg['ckpt_folder'], run_name, 'inference')).mkdir(parents=True, exist_ok=True)
 
     # transforms
-    transforms = get_transforms(dataset_cfg)
+    transforms = get_transforms(transforms_cfg["transform"], in_channels=dataset_cfg["img_channels"])
 
     #dataset
     dataset = HolographyImageFolder(root=dataset_cfg["root"], 

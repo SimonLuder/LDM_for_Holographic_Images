@@ -15,14 +15,17 @@ parent_dir = os.path.dirname(current_dir)
 sys.path.append(parent_dir)
 
 from model.vqvae import VQVAE
+from model.conditioning.transforms.registry import get_transforms
 from pollen_datasets.poleno import HolographyImageFolder
 from utils.config import load_config
-from utils.train_test_utils import save_images_batch, save_json, get_transforms
+from utils.train_test_utils import save_json
+from utils.images import save_images_batch
 
 def test(config):
 
     run_name = config["name"]
     dataset_cfg = config['dataset']
+    transforms_cfg = config['transforms']
     autoencoder_config = config['autoencoder']
     train_cfg = config['vqvae_train']
     test_config = config["vqvae_test"]
@@ -45,7 +48,7 @@ def test(config):
     Path(images_save_dir).mkdir(parents=True, exist_ok=True)
 
     # transforms
-    transforms = get_transforms(dataset_cfg)
+    transforms = get_transforms(transforms_cfg["transform"], in_channels=dataset_cfg["img_channels"])
 
     #dataset
     dataset_test = HolographyImageFolder(root=dataset_cfg["root"], 
