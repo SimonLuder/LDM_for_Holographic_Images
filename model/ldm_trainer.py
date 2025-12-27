@@ -159,8 +159,10 @@ class NVLDMTrainer:
 
             if np.random.random() < self.train_cfg["ldm_cfg_discard_prob"]:
                 cond1 = None
+                cond2 = None
         else:
             cond1 = None
+            cond2 = None
 
         return (im1, im2), (cond1, cond2)
 
