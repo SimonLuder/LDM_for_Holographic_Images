@@ -10,6 +10,8 @@ import torch.nn as nn
 from torch.utils.data import DataLoader
 import torchvision
 
+from pollen_datasets.poleno import PairwiseHolographyImageFolder
+
 # add parent dir to path
 current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir) 
@@ -22,8 +24,8 @@ from model.conditioning import custom_conditions # required
 from model.conditioning.transforms.registry import get_transforms
 from model.ddpm import Diffusion as DDPMDiffusion
 from utils.config import load_config
-from pollen_datasets.poleno import PairwiseHolographyImageFolder
-from utils.train_test_utils import save_images_batch, save_tensors_batch, get_image_encoder_names
+from utils.train_test_utils import save_tensors_batch, get_image_encoder_names
+from utils.images import save_images_batch
 
 
 def test(config):
