@@ -23,7 +23,7 @@ from model.conditioning.registry import build_encoder_from_registry
 from model.conditioning import custom_conditions # required
 from model.conditioning.transforms.registry import get_transforms
 from model.ddpm import Diffusion as DDPMDiffusion
-from utils.config import load_config
+from utils.config import load_config, save_config
 from utils.train_test_utils import save_tensors_batch, get_image_encoder_names
 from utils.images import save_images_batch
 
@@ -42,14 +42,14 @@ def test(config):
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-    ldm_ckpt_name = train_cfg['ldm_ckpt_name']
-
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     dataset_name = os.path.splitext(os.path.basename(dataset_cfg["labels_test"]))[0]
     ckpt_name = os.path.splitext(os.path.basename(inference_cfg["ddpm_model_ckpt"]))[0]
 
-    images_save_dir = os.path.join(train_cfg['ckpt_folder'], run_name, "test", f"{ckpt_name}_{dataset_name}_{timestamp}", "images")
-    latents_save_dir = os.path.join(train_cfg['ckpt_folder'], run_name, "test", f"{ckpt_name}_{dataset_name}_{timestamp}", "latents")
+    test_out_dir = os.path.join(train_cfg['ckpt_folder'], run_name, "test", f"{ckpt_name}_{dataset_name}_{timestamp}")
+    images_save_dir = os.path.join(test_out_dir, "images")
+    latents_save_dir = os.path.join(test_out_dir, "latents")
+    save_config(config, os.path.join(test_out_dir, "test_config.yaml"))
 
     Path(images_save_dir).mkdir(parents=True, exist_ok=True)
     Path(latents_save_dir).mkdir(parents=True, exist_ok=True)
