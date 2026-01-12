@@ -49,10 +49,12 @@ def test(config):
     test_out_dir = os.path.join(train_cfg['ckpt_folder'], run_name, "test", f"{ckpt_name}_{dataset_name}_{timestamp}")
     images_save_dir = os.path.join(test_out_dir, "images")
     latents_save_dir = os.path.join(test_out_dir, "latents")
-    save_config(config, os.path.join(test_out_dir, "test_config.yaml"))
 
+    Path(test_out_dir).mkdir(parents=True, exist_ok=True)
     Path(images_save_dir).mkdir(parents=True, exist_ok=True)
     Path(latents_save_dir).mkdir(parents=True, exist_ok=True)
+
+    save_config(config, os.path.join(test_out_dir, "test_config.yaml"))
 
     ###################################### data ######################################
 
