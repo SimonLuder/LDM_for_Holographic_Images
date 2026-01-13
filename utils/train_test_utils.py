@@ -64,3 +64,13 @@ def get_image_encoder_names(condition_config):
         if cfg.get("type") == "image" and name in condition_config["enabled"]:
             image_encoders.append(name)
     return image_encoders
+
+
+def deep_update(d, u):
+    """Update a nested dictionary d with another nested dictionary u"""
+    for k, v in u.items():
+        if isinstance(v, dict) and isinstance(d.get(k), dict):
+            deep_update(d[k], v)
+        else:
+            d[k] = v
+    return d
