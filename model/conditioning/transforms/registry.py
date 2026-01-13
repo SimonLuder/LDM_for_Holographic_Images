@@ -112,6 +112,33 @@ def build_clip_transform(params: Dict[str, Any]):
     return T.Compose(transforms_list)
 
 
+@register_cond_transform("test_image_transform")
+def build_test_image_transform(params: Dict[str, Any]):
+    """
+    params:
+      img_interpolation: int | None
+    """
+
+    img_interpolation = params.get("img_interpolation", None)
+
+    transforms_list = []
+
+    # To tensor
+    transforms_list.append(T.ToTensor())
+
+    # Resize if specified
+    if img_interpolation is not None:
+        transforms_list.append(
+            T.Resize(
+                (img_interpolation, img_interpolation),
+                interpolation=T.InterpolationMode.BILINEAR
+            )
+        )
+
+    return T.Compose(transforms_list)
+
+
+
 def ensure_three_channels(x: torch.Tensor, img_channels: int) -> torch.Tensor:
         # x: (C,H,W) or (H,W)
         if x.ndim == 2:
