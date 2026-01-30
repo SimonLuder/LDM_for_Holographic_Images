@@ -195,9 +195,8 @@ def train(config):
                               device=device,
                               )
     
-    # lpips
-    if train_with_perceptual_loss:
-        lpips_model = LPIPS(net_type='alex').to(device)
+    # LPIPS model
+    lpips_model = LPIPS(net_type='alex').to(device)
 
 
     print(f"Start training with perceptual loss: {train_with_perceptual_loss}, discriminator: {train_with_discriminator}")
@@ -211,7 +210,7 @@ def train(config):
         device=device,
         vae=vae if not latents_available else None,
         criterion=criterion,
-        lpips_model=lpips_model if train_with_perceptual_loss else None,
+        lpips_model=lpips_model,
         discriminator=discriminator if train_with_discriminator else None,
         optimizer_d=optimizer_d if train_with_discriminator else None,
         d_criterion=d_criterion if train_with_discriminator else None,

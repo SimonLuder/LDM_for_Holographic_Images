@@ -5,7 +5,8 @@ from tqdm import tqdm
 from pathlib import Path
 
 from utils.train_test_utils import get_image_encoder_names
-
+from utils.wandb import wandb_make_batch_grid
+from utils import regionprops
 
 class NVLDMTrainer:
     def __init__(
@@ -102,6 +103,20 @@ class NVLDMTrainer:
         self.ckpt_exists = os.path.exists(self.resume_from_ckpt)
         if self.resume_from_ckpt is not None and self.ckpt_exists:
             self.load_checkpoint(self.resume_from_ckpt)
+
+        # Fixed validation samples for LPIPS
+        self.num_val_lpips = self.train_cfg.get("ldm_val_lpips_samples", 8)
+        val_len = len(self.dataloader_val.dataset)
+        self.val_lpips_indices = np.linspace(0, val_len - 1, self.num_val_lpips, dtype=int).tolist()
+
+        # Fixed noise for LPIPS validation
+        self.val_lpips_noise = torch.randn(
+            self.num_val_lpips,
+            self.diffusion.img_channels,
+            self.diffusion.img_size,
+            self.diffusion.img_size,
+            device=self.device
+        )
 
         print("Trainer setup from config complete")
 
@@ -335,10 +350,15 @@ class NVLDMTrainer:
                     and (self.step_count >= self.train_cfg["ldm_val_start"])
                     ):
 
+                    lpips_logs = self.validate_lpips()
+
+                    if self.wandb_run and lpips_logs is not None:
+                        self.wandb_run.log(lpips_logs, step=self.step_count)
+
                     logs_val = self.validate()
+
                     if self.wandb_run and logs_val is not None:
                         self.wandb_run.log(logs_val, step=self.step_count)
-
 
                 # Checkpointing
                 if self.step_count % self.train_cfg["ldm_ckpt_steps"] == 0:
@@ -362,10 +382,11 @@ class NVLDMTrainer:
         reconstruction_losses = []
 
         with torch.no_grad():
+
+            # Reconstruction loss on full val set
             for batch in tqdm(self.dataloader_val):
                 (im1, _), (_, cond2) = self.prepare_batch(batch)
-
-
+                
                 x_t, noise, x_t_neg_1, t = self.diffusion_forward(im1)
 
                 # predict noise
@@ -404,3 +425,71 @@ class NVLDMTrainer:
             sampled_imgs = self.vae.decode(sampled_latents)
 
         return sampled_imgs, gt_im1
+    
+    def get_fixed_val_samples(self, indices):
+        # collect samples
+        samples = [self.dataloader_val.dataset[i] for i in indices]
+
+        # use the dataloader's collate_fn
+        collate_fn = self.dataloader_val.collate_fn
+        batch = collate_fn(samples)
+
+        # now reuse the EXACT same logic as training
+        return self.prepare_batch(batch)
+
+    def validate_lpips(self):
+
+        if self.dataloader_val is None:
+            return None
+
+        self.model.eval()
+        if self.vae is not None:
+            self.vae.eval()
+        self.lpips_model.eval()
+
+        with torch.no_grad():
+
+            (gt_im1, _), (_, cond2) = self.get_fixed_val_samples(self.val_lpips_indices)
+
+            sampled_latents = self.diffusion.sample(
+                model=self.model,
+                condition=cond2,
+                n=gt_im1.size()[0],
+                x_init=self.val_lpips_noise,
+                cfg_scale=self.train_cfg.get("ldm_cfg_scale", 3),
+                to_uint8=False
+            )
+
+            sampled_imgs = self.vae.decode(sampled_latents)
+
+            
+            gt_rps = regionprops.regionprops_from_torch_batch(gt_im1)
+            gen_rps = regionprops.regionprops_from_torch_batch(sampled_imgs)
+            rp_error = regionprops.abs_prop_rps_error(gt_rps, gen_rps)
+
+            lpips_loss = self.compute_lpips_loss(gt_im1, sampled_imgs)
+
+            if self.wandb_run:
+
+                grid_image = wandb_make_batch_grid(gt_im1, sampled_imgs, self.step_count)
+
+                val_sample_logs = rp_error.copy()
+                val_sample_logs.update(
+                    {
+                        "val_lpips": lpips_loss.item(),
+                        "val_lpips_batch": grid_image,
+                    },
+                )
+
+                self.wandb_run.log(
+                    val_sample_logs,
+                    step=self.step_count
+                )
+
+            self.model.train()
+            if self.vae is not None:
+                self.vae.train()
+
+            return {
+                "val_lpips": lpips_loss.item()
+            }

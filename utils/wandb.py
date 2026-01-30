@@ -1,6 +1,6 @@
 import wandb
 import numpy as np
-
+import torch
 
 class WandbManager:
     def __init__(self, project, run_name, config):
@@ -68,3 +68,31 @@ def download_everything(entity, project, name):
     api = wandb.Api()
     artifact = api.artifact(f'{entity}/{project}/{name}:latest', type='everything')
     artifact.download(f'runs/{name}')
+
+
+
+def wandb_make_batch_grid(gt, pred, step_count):
+    """
+    gt, pred: [B, C, H, W] tensors in [-1, 1] or [0, 1]
+    returns: wandb.Image with shape [2H, B*W, C]
+    """
+
+    # map to [0, 1]
+    gt = (gt.clamp(-1, 1) + 1) / 2
+    pred = (pred.clamp(-1, 1) + 1) / 2
+
+    # convert to HWC
+    gt = gt.permute(0, 2, 3, 1)
+    pred = pred.permute(0, 2, 3, 1)
+
+    # concat GT horizontally
+    gt_row = torch.cat(list(gt), dim=1)     # [H, B*W, C]
+    pred_row = torch.cat(list(pred), dim=1) # [H, B*W, C]
+
+    # stack GT on top of GEN
+    grid = torch.cat([gt_row, pred_row], dim=0)  # [2H, B*W, C]
+
+    return wandb.Image(
+        grid.cpu().numpy(),
+        caption=f"GT (top) | Generated (bottom) — step {step_count}"
+    )
