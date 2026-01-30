@@ -90,12 +90,17 @@ class Diffusion:
         return x
 
 
-    def sample(self, model, condition, n=None, cfg_scale=3, to_uint8=True):
+    def sample(self, model, condition, n=None, x_init=None, cfg_scale=3, to_uint8=True):
         if n is None:
             n = len(condition)
         model.eval()
         with torch.no_grad():
-            x = torch.randn((n, self.img_channels, self.img_size, self.img_size)).to(self.device)
+
+            if x_init is None:
+                x = torch.randn((n, self.img_channels, self.img_size, self.img_size), device=self.device)
+            else:
+                x = x_init.clone()
+
             for i in tqdm(reversed(range(1, self.noise_steps)), position=0):
                 t = (torch.ones(n) * i).long().to(self.device)
                 predicted_noise = model(x, t, condition)
