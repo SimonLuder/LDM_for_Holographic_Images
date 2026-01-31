@@ -1,6 +1,6 @@
 from __future__ import annotations
 import torch.nn as nn
-from byol_poleno.model.encoders import BYOLPolenoEmbedding
+from ssl_poleno.model.encoders import BYOLPolenoEmbedding
 from typing import Callable, Dict, Any
 from .encoders import MLP, CLIPImageEmbedding
 from .wrapper import ConditionEmbeddingWrapper
