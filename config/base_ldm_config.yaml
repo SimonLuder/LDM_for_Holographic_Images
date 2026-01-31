@@ -33,9 +33,6 @@ ddpm: # DDPM architecture
   num_mid_layers : 2                                              # nr of layers in the middle blocks
   num_up_layers : 2                                               # nr of layers in each upsampling block
   cond_emb_dim : 512                                              # conditional embedding dimension
-  cls_emb_dim : 256                                               # class embedding dimension
-  tbl_emb_dim : 256                                               # tabular embedding dimension
-  img_emb_dim : 256                                               # image embedding dimension
   cond_insert_type : "concatenation"                              # how to combine conditional and time embedding (additive, concatenation or crossattention)
 
 autoencoder: # VQ-VAE
@@ -126,8 +123,6 @@ ldm_train : # LDM training parameters
   ldm_discriminator_start_step : -1                               # start the discriminator after n batches (-1 means no discriminator)
   ldm_discriminator_loss : BCEWithLogits                          # discrminator loss criterion
   ldm_discriminator_weight : 0                                    # weight of the discriminator loss
-  ldm_ckpt_name : 'unet'                                          # name of the model 
-  ldm_discriminator_ckpt_name : 'discriminator'                   # name of the discriminator checkpoint
   vqvae_latents_representations : 'vqvae_latents_representations_512_8'
   resume_training: False                                          # if true resume training from a checkpoint                
   resume_optimizer: True                                          # if true resume with optimizer state
