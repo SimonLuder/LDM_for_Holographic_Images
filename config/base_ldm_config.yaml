@@ -1,4 +1,4 @@
-name: 'ldm_8_512'
+name: 'ldm_nv_clip'
 
 dataset: # Dataset configuration
   root: "Z:/marvel/marvel-fhnw/data/"                             # root folder of the dataset
@@ -39,8 +39,8 @@ ddpm: # DDPM architecture
   cond_insert_type : "concatenation"                              # how to combine conditional and time embedding (additive, concatenation or crossattention)
 
 autoencoder: # VQ-VAE
-  config_file: ./checkpoints/vqvae_8_512/base_vqvae_config.yaml
-  weights: ./checkpoints/vqvae_8_512/autoencoder/latest.pth
+  config_file: ./checkpoints/vqvae_512_8/base_vqvae_config.yaml
+  weights: ./checkpoints/vqvae_512_8/autoencoder/latest.pth
 
 conditioning: # Conditional encoders
   enabled: "clip_image"                                           # add encoders with a "+" sign (e.g. "regionprops+class") or "unconditional"
@@ -59,8 +59,8 @@ conditioning: # Conditional encoders
       encoder: MLP
       params:
         in_dim: 15
-        hidden_dim: 128
-        out_dim: 256
+        hidden_dim: 64
+        out_dim: 128
       use_columns:
         - area
         - bbox_area
@@ -108,7 +108,7 @@ conditioning: # Conditional encoders
   
 ldm_train : # LDM training parameters
   seed : 42
-  ckpt_folder : 'checkpoints'                                     # everythig saved during the run is here
+  ckpt_folder : 'local_checkpoints'                               # everythig saved during the run is here
   num_workers : 4                                                 # nr of workers in the dataloader
   ldm_lr :  0.00005                                               # ldm learning rate
   ldm_disc_lr : 0.00005                                           # discriminator learning rate
@@ -119,17 +119,19 @@ ldm_train : # LDM training parameters
   ldm_beta_start : 0.0015                                         # linear noise schedule beta start
   ldm_beta_end : 0.0195                                           # linear noise schedule beta end
   ldm_cfg_discard_prob : 0.1                                      # classifier free guidance discard probability during training
-  ldm_ckpt_steps : 10000                                          # create model checkpoints every n steps
-  ldm_val_steps : 10000                                           # validate the model every n steps
-  ldm_val_start : 10000                                           # start making checkpoints from this batch onwards
+  ldm_ckpt_steps : 10                                          # create model checkpoints every n steps
+  ldm_val_steps : 10                                           # validate the model every n steps
+  ldm_val_start : 10                                           # start making checkpoints from this batch onwards
   ldm_perceptual_weight : 0                                       # lpips weight in the loss function
   ldm_discriminator_start_step : -1                               # start the discriminator after n batches (-1 means no discriminator)
   ldm_discriminator_loss : BCEWithLogits                          # discrminator loss criterion
   ldm_discriminator_weight : 0                                    # weight of the discriminator loss
   ldm_ckpt_name : 'unet'                                          # name of the model 
   ldm_discriminator_ckpt_name : 'discriminator'                   # name of the discriminator checkpoint
-  vqvae_latents_representations : 'vqvae_latents_representations_8_512'
-  resume_from_ckpt : checkpoints/ldm_8_512_novel_clip/ckpts/latest.ckpt
+  vqvae_latents_representations : 'vqvae_latents_representations_512_8'
+  resume_training: False                                          # if true resume training from a checkpoint                
+  resume_optimizer: True                                          # if true resume with optimizer state
+  resume_ckpt : local_checkpoints/ldm_nv_clip/ckpts/latest.ckpt   # if resume_training, use this checkpoint
 
 ddpm_validation : 
   model_ckpts : ['latest.pth']
