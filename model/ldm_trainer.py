@@ -64,6 +64,12 @@ class NVLDMTrainer:
         self.train_cfg = config["ldm_train"]
         self.condition_cfg = config["conditioning"]
 
+        self.ckpt_root = self.train_cfg["ckpt_folder"]
+        self.run_dir = os.path.join(self.ckpt_root, self.run_name)
+        self.ckpt_dir = os.path.join(self.run_dir, "ckpts")
+
+        Path(self.ckpt_dir).mkdir(parents=True, exist_ok=True)
+
         if self.condition_cfg["enabled"] == "unconditional":
             self.use_condition = []
             self.used_image_encoders = []
@@ -99,10 +105,29 @@ class NVLDMTrainer:
             assert self.lpips_model is not None, "lpips_model must be provided"
 
         # Checkpoints
-        self.resume_from_ckpt = self.train_cfg.get("resume_from_ckpt", None)
-        self.ckpt_exists = os.path.exists(self.resume_from_ckpt)
-        if self.resume_from_ckpt is not None and self.ckpt_exists:
-            self.load_checkpoint(self.resume_from_ckpt)
+        self.resume_training = self.train_cfg.get("resume_training", False)
+        self.resume_ckpt = self.train_cfg.get("resume_ckpt", None)
+        self.allow_overwrite = self.train_cfg.get("allow_overwrite", False)
+
+        if self.resume_training:
+
+            if self.resume_ckpt is None:
+                raise ValueError("resume_training=True but resume_ckpt is None")
+
+            if not os.path.exists(self.resume_ckpt):
+                raise FileNotFoundError(f"Resume checkpoint not found: {self.resume_ckpt}")
+            
+            if self._ckpt_dir_has_checkpoints() and not self.allow_overwrite:
+                raise RuntimeError(
+                    f"Refusing to resume training because output directory already exists:\n"
+                    f"  {self.run_dir}\n\n"
+                    f"If you REALLY want to write into this directory, re-run with:\n"
+                    f"  --allow-overwrite"
+                )
+
+            self.load_checkpoint(self.resume_ckpt)
+        else:
+            print("Starting training from scratch")
 
         # Fixed validation samples for LPIPS
         self.num_val_lpips = self.train_cfg.get("ldm_val_lpips_samples", 8)
@@ -123,6 +148,8 @@ class NVLDMTrainer:
     # Checkpointing ---------------------------------------------------
 
     def save_checkpoint(self, path, epoch):
+        tmp_path = path + ".tmp"
+
         ckpt = {
             "model": self.model.state_dict(),
             "optimizer": self.optimizer.state_dict(),
@@ -134,22 +161,35 @@ class NVLDMTrainer:
             ckpt["discriminator"] = self.discriminator.state_dict()
             ckpt["optimizer_d"] = self.optimizer_d.state_dict()
 
-        Path(os.path.dirname(path)).mkdir(parents=True, exist_ok=True)  
-        torch.save(ckpt, path)
+        Path(os.path.dirname(path)).mkdir(parents=True, exist_ok=True)
+        torch.save(ckpt, tmp_path)
+        os.replace(tmp_path, path)
 
+    def _ckpt_dir_has_checkpoints(self):
+        if not os.path.exists(self.ckpt_dir):
+            return False
+
+        return any(
+            fname.endswith(".ckpt")
+            for fname in os.listdir(self.ckpt_dir)
+        )
 
     def load_checkpoint(self, path):
         ckpt = torch.load(path, map_location=self.device)
 
         self.model.load_state_dict(ckpt["model"])
-        self.optimizer.load_state_dict(ckpt["optimizer"])
 
-        self.step_count = ckpt["step"]
-        self.start_epoch = ckpt["epoch"] + 1
+        if self.train_cfg.get("resume_optimizer", False):
+            self.optimizer.load_state_dict(ckpt["optimizer"])
 
         if self.discriminator and "discriminator" in ckpt:
             self.discriminator.load_state_dict(ckpt["discriminator"])
-            self.optimizer_d.load_state_dict(ckpt["optimizer_d"])
+            
+            if self.train_cfg.get("resume_optimizer", False):
+                self.optimizer_d.load_state_dict(ckpt["optimizer_d"])
+
+        self.step_count = ckpt["step"]
+        self.start_epoch = ckpt["epoch"] + 1
 
         print(f"Resumed from step {self.step_count}, epoch {self.start_epoch}")
 
@@ -294,6 +334,9 @@ class NVLDMTrainer:
         steps_per_opt = self.train_cfg["ldm_steps_per_optimization"]
         num_epochs = self.train_cfg["ldm_epochs"]
 
+        if self.start_epoch >= num_epochs:
+            print(f"start_epoch ({self.start_epoch}) >= ldm_epochs ({num_epochs}). Nothing to train.")
+
         for epoch in range(self.start_epoch, num_epochs):
             pbar = tqdm(self.dataloader, desc=f"Epoch {epoch + 1}")
 
@@ -350,7 +393,7 @@ class NVLDMTrainer:
                     and (self.step_count >= self.train_cfg["ldm_val_start"])
                     ):
 
-                    lpips_logs = self.validate_lpips()
+                    lpips_logs = self.validate_samples()
 
                     if self.wandb_run and lpips_logs is not None:
                         self.wandb_run.log(lpips_logs, step=self.step_count)
@@ -362,9 +405,8 @@ class NVLDMTrainer:
 
                 # Checkpointing
                 if self.step_count % self.train_cfg["ldm_ckpt_steps"] == 0:
-                    ckpt_path = os.path.join(self.train_cfg['ckpt_folder'], self.run_name, "ckpts")
-                    self.save_checkpoint(path= os.path.join(ckpt_path, "latest.ckpt"), epoch=epoch)
-                    self.save_checkpoint(path= os.path.join(ckpt_path, f"{self.step_count}.ckpt"), epoch=epoch)
+                    self.save_checkpoint(path= os.path.join(self.ckpt_dir, "latest.ckpt"), epoch=epoch)
+                    self.save_checkpoint(path= os.path.join(self.ckpt_dir, f"{self.step_count}.ckpt"), epoch=epoch)
 
                 pbar.set_postfix(Loss=loss.item())
                 
@@ -437,7 +479,7 @@ class NVLDMTrainer:
         # now reuse the EXACT same logic as training
         return self.prepare_batch(batch)
 
-    def validate_lpips(self):
+    def validate_samples(self):
 
         if self.dataloader_val is None:
             return None
@@ -462,12 +504,18 @@ class NVLDMTrainer:
 
             sampled_imgs = self.vae.decode(sampled_latents)
 
-            
+            # Regionprops
             gt_rps = regionprops.regionprops_from_torch_batch(gt_im1)
             gen_rps = regionprops.regionprops_from_torch_batch(sampled_imgs)
             rp_error = regionprops.abs_prop_rps_error(gt_rps, gen_rps)
 
+            # LPIPS
             lpips_loss = self.compute_lpips_loss(gt_im1, sampled_imgs)
+
+            # MSE
+            gt_mse = (gt_im1 + 1) / 2
+            gen_mse = (sampled_imgs + 1) / 2
+            mse_loss = ((gen_mse - gt_mse) ** 2).mean()
 
             if self.wandb_run:
 
@@ -476,6 +524,7 @@ class NVLDMTrainer:
                 val_sample_logs = rp_error.copy()
                 val_sample_logs.update(
                     {
+                        "val_mse": mse_loss.item(),
                         "val_lpips": lpips_loss.item(),
                         "val_lpips_batch": grid_image,
                     },

@@ -45,9 +45,6 @@ def train(config):
     train_cfg               = config['ldm_train']
     vae_model_cfg           = load_config(autoencoder_cfg["config_file"])["autoencoder"]
 
-    ldm_ckpt_name = train_cfg['ldm_ckpt_name']
-    discriminator_ckpt_name = train_cfg['ldm_discriminator_ckpt_name']
-
     train_with_discriminator = train_cfg['ldm_discriminator_weight'] > 0 and train_cfg['ldm_discriminator_start_step'] > 0
     train_with_perceptual_loss = train_cfg['ldm_perceptual_weight'] > 0
 
@@ -59,12 +56,8 @@ def train(config):
     # init run
     wandb_run = wandb_manager.get_run()
 
-    # create checkpoints and sample paths
-    Path(os.path.join(train_cfg['ckpt_folder'], run_name, ldm_ckpt_name)).mkdir(parents=True, exist_ok=True)  
-    Path(os.path.join(train_cfg['ckpt_folder'], run_name, discriminator_ckpt_name)).mkdir(parents=True, exist_ok=True)  
-    Path(os.path.join(train_cfg['ckpt_folder'], run_name, "checkpoints")).mkdir(parents=True, exist_ok=True)  
-
     # copy config to checkpoint folder
+    Path(os.path.join(train_cfg['ckpt_folder'], run_name)).mkdir(parents=True, exist_ok=True) 
     shutil.copyfile(config_path, os.path.join(train_cfg['ckpt_folder'], 
                                               run_name,
                                               os.path.basename(config_path)))
@@ -155,13 +148,15 @@ def train(config):
             device=device
             )
         context_encoder.to(device)
-        
 
     ##################################### u-net ######################################
     # UNet
-    model = UNet(img_channels=vae_model_cfg['z_channels'], 
-                 model_config=ddpm_cfg,
-                 context_encoder=context_encoder).to(device)
+    model = UNet(
+        img_channels=vae_model_cfg['z_channels'], 
+        model_config=ddpm_cfg,
+        context_encoder=context_encoder
+    ).to(device)
+
     model.train()
 
     optimizer = Adam(model.parameters(), lr=train_cfg['ldm_lr'])
@@ -175,10 +170,12 @@ def train(config):
         discriminator.train()
 
         optimizer_d = Adam(discriminator.parameters(), lr=train_cfg['ldm_disc_lr'])
-        # d_criterion = torch.nn.MSELoss()
-        loss_functions = {"MSELoss" : torch.nn.MSELoss, 
-                          "BCEWithLogits" : torch.nn.BCEWithLogitsLoss,}.get(
-                              train_cfg["ldm_discriminator_loss"])
+
+        loss_functions = {
+            "MSELoss" : torch.nn.MSELoss, 
+            "BCEWithLogits" : torch.nn.BCEWithLogitsLoss,
+            }.get(train_cfg["ldm_discriminator_loss"])
+        
         d_criterion = loss_functions()
     
     # Load Diffusion Process
@@ -187,13 +184,14 @@ def train(config):
     else:
         img_size = dataset_cfg['img_size'] // 2 ** sum(vae_model_cfg['down_sample'])
     
-    diffusion = DDPMDiffusion(img_size=img_size, 
-                              img_channels=vae_model_cfg['z_channels'],
-                              noise_schedule="linear", 
-                              beta_start=train_cfg["ldm_beta_start"], 
-                              beta_end=train_cfg["ldm_beta_end"],
-                              device=device,
-                              )
+    diffusion = DDPMDiffusion(
+        img_size=img_size, 
+        img_channels=vae_model_cfg['z_channels'],
+        noise_schedule="linear", 
+        beta_start=train_cfg["ldm_beta_start"], 
+        beta_end=train_cfg["ldm_beta_end"],
+        device=device,
+    )
     
     # LPIPS model
     lpips_model = LPIPS(net_type='alex').to(device)
@@ -226,8 +224,10 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Arguments for ldm training')
     parser.add_argument('--config', dest='config_path',
                         default='config/base_ldm_config.yaml', type=str)
+    parser.add_argument("--allow-overwrite", action="store_true", help="Allow resuming into an existing checkpoint directory")
     args = parser.parse_args()
 
     config = load_config(args.config_path)
+    config["ldm_train"]["allow_overwrite"] = args.allow_overwrite
 
     train(config)
