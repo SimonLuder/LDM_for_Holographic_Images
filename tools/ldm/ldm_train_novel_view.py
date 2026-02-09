@@ -51,8 +51,13 @@ def train(config):
     # train on GPU if it is available else CPU
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
+    if train_cfg.get("resume_training", False):
+        wandb_run_id = train_cfg.get("wandb_run_id", None)
+    else: 
+        wandb_run_id = None
+
     # setup WandbManager
-    wandb_manager = WandbManager(project="MSE_P9_LDM", run_name=run_name, config=config)
+    wandb_manager = WandbManager(project="MSE_P9_LDM", run_name=run_name, config=config, run_id=wandb_run_id)
     # init run
     wandb_run = wandb_manager.get_run()
 

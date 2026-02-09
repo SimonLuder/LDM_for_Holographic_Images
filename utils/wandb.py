@@ -3,12 +3,16 @@ import numpy as np
 import torch
 
 class WandbManager:
-    def __init__(self, project, run_name, config):
+    def __init__(self, project, run_name, config, run_id=None):
         self.config = config
+        self.run_id = run_id
+
         self.run = wandb.init(
             project=project, 
             name=run_name, 
-            config=self.config
+            config=self.config,
+            id=self.run_id,
+            resume="allow" if self.run_id else None,
         )
     
     def get_run(self):
