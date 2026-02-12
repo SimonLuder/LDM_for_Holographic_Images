@@ -119,8 +119,9 @@ if __name__ == "__main__":
     parser.add_argument(
         '--ckpt_dir',  
         type=str,
+        nargs='+', 
         required=True,
-        help="Dir path to the checkpoint",
+        help="Dir paths to the checkpoint",
     )
 
     parser.add_argument(
@@ -139,33 +140,35 @@ if __name__ == "__main__":
 
     args = parser.parse_args()     
 
-    test_samples = os.listdir(os.path.join(args.ckpt_dir, "test"))
+    for ckpt_dir in args.ckpt_dir:
 
-    for test_sample in test_samples:
+        test_samples = os.listdir(os.path.join(ckpt_dir, "test"))
 
-        print("Testing:", test_sample)
+        for test_sample in test_samples:
 
-        output_dir              = os.path.join(args.ckpt_dir, "test", test_sample)
-        config_file             = os.path.join(output_dir, "test_config.yaml")
-        gen_img_root            = os.path.join(output_dir, "images")
-        outfile                 = os.path.join(output_dir, args.outfile)
-        
-        data_to_update = {
-            "dataset": {
-                "root": args.gt_img_root,
-            },
-            "test": {
-                "gen_images_root": gen_img_root,
+            print("Testing:", test_sample)
+
+            output_dir              = os.path.join(ckpt_dir, "test", test_sample)
+            config_file             = os.path.join(output_dir, "test_config.yaml")
+            gen_img_root            = os.path.join(output_dir, "images")
+            outfile                 = os.path.join(output_dir, args.outfile)
+            
+            data_to_update = {
+                "dataset": {
+                    "root": args.gt_img_root,
+                },
+                "test": {
+                    "gen_images_root": gen_img_root,
+                }
             }
-        }
 
-        config = load_config(config_file)
-        config = deep_update(config, data_to_update)
+            config = load_config(config_file)
+            config = deep_update(config, data_to_update)
 
-        df_metrics = calc_test_metrics(config)
+            df_metrics = calc_test_metrics(config)
 
-        df_metrics.to_csv(outfile, index=False)
-        print("Saved at:", outfile)
+            df_metrics.to_csv(outfile, index=False)
+            print("Saved at:", outfile)
     
 
 # Example use
