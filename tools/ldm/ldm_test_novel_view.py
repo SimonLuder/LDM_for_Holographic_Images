@@ -223,10 +223,16 @@ def pca_channel_reduction(batch, out_channels = 3):
 if __name__ == "__main__":
     
     parser = argparse.ArgumentParser(description='Arguments for ldm inference')
-    parser.add_argument('--config', dest='config_path',
-                        default='config/base_ldm_config.yaml', type=str)
+    parser.add_argument('--config', 
+                        dest='config_path',
+                        nargs='+', 
+                        default=['config/base_ldm_config.yaml'], 
+                        type=str
+                        )
     args = parser.parse_args()
 
-    config = load_config(args.config_path)
+    for config_path in args.config_path:
 
-    test(config)
+        config = load_config(config_path)
+
+        test(config)
