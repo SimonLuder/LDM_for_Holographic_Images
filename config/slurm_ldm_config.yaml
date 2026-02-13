@@ -116,6 +116,7 @@ ldm_train : # LDM training parameters
   ldm_beta_start : 0.0015                                         # linear noise schedule beta start
   ldm_beta_end : 0.0195                                           # linear noise schedule beta end
   ldm_cfg_discard_prob : 0.1                                      # classifier free guidance discard probability during training
+  ldm_cfg_scale : 7.5                                             # classifier free guidance scale during validation 
   ldm_ckpt_steps : 25000                                          # create model checkpoints every n steps
   ldm_val_steps : 25000                                           # validate the model every n steps
   ldm_val_start : 25000                                           # start making checkpoints from this batch onwards
@@ -128,9 +129,6 @@ ldm_train : # LDM training parameters
   resume_optimizer: True                                          # if true resume with optimizer state
   resume_ckpt : checkpoints/ldm_nv_clip/ckpts/latest.ckpt         # if resume_training, use this checkpoint
 
-ddpm_validation :
-  model_ckpts : ['latest.pth']
-
 ddpm_test :
   model_ckpt : 'latest.pth'
 
@@ -139,7 +137,6 @@ ddpm_inference :
   num_samples : 8
   num_grid_rows : 8
   upscale_latent_dim : True
-  ldm_cfg_strength : 0
-  ddpm_model_ckpt : 'latest.pth'
-  autoencoder_model_ckpt : 'latest.pth'
+  ldm_cfg_scale : 7.5
+  ddpm_model_ckpt : 'latest.ckpt'
   
