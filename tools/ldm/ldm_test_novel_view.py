@@ -162,7 +162,7 @@ def test(config):
             img_latent = diffusion.sample(model, 
                                           condition=cond2, 
                                           n=train_cfg['ldm_batch_size'], 
-                                          cfg_scale=3,
+                                          cfg_scale=inference_cfg.get("ldm_cfg_scale", 3),
                                           to_uint8=False)
 
             # upsample with vqvae
