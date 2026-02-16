@@ -64,15 +64,16 @@ def dual_image_condition_index(val1, val2, meta):
 def pair_fourier_orientation(val1, val2, meta):
     
     def fourier_orientation(theta, num_freqs=4):
-        theta = torch.as_tensor(theta, dtype=torch.float32)
+        theta = torch.tensor(theta, dtype=torch.float32)
 
-        if theta.dim() == 0:
-            theta = theta.unsqueeze(0)
+        freqs = 2 ** torch.arange(num_freqs)
+        angles = theta * freqs
 
-        freqs = 2 ** torch.arange(num_freqs, device=theta.device)
-        angles = theta.unsqueeze(-1) * freqs
-
-        return torch.cat([torch.sin(angles), torch.cos(angles)], dim=-1)
+        features = torch.cat([
+            torch.sin(angles),
+            torch.cos(angles)
+        ])
+        return features  # (num_freqs*2,)
 
     return (
         fourier_orientation(val1),
