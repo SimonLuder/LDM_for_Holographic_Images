@@ -58,3 +58,24 @@ def relative_viewpoint_rotation(val1, val2, meta):
 def dual_image_condition_index(val1, val2, meta):
     """Returns the indices for the images"""
     return 0, 1
+
+
+@register_condition_fn("fourier_orientation")
+def pair_fourier_orientation(val1, val2, meta):
+    
+    def fourier_orientation(theta, num_freqs=4):
+        theta = torch.as_tensor(theta, dtype=torch.float32)
+
+        if theta.dim() == 0:
+            theta = theta.unsqueeze(0)
+
+        freqs = 2 ** torch.arange(num_freqs, device=theta.device)
+        angles = theta.unsqueeze(-1) * freqs
+
+        return torch.cat([torch.sin(angles), torch.cos(angles)], dim=-1)
+
+    return (
+        fourier_orientation(val1),
+        fourier_orientation(val2),
+    )
+    
