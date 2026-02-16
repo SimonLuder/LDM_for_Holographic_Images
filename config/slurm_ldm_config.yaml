@@ -137,6 +137,7 @@ ddpm_inference :
   num_samples : 8
   num_grid_rows : 8
   upscale_latent_dim : True
+  conditional : True
   ldm_cfg_scale : 7.5
   ddpm_model_ckpt : 'latest.ckpt'
   

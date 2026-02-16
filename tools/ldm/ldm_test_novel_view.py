@@ -148,16 +148,18 @@ def test(config):
             im1 = im1.float().to(device)
             im2 = im2.float().to(device)
             
-            for cond in use_condition:
+            if inference_cfg.get("conditional", True):
+                for cond in use_condition:
 
-                # Use image as input condition
-                if cond in used_image_encoders:
-                    cond1[cond] = im1
-                    cond2[cond] = im2
+                    # Use image as input condition
+                    if cond in used_image_encoders:
+                        cond1[cond] = im1
+                        cond2[cond] = im2
 
-                cond1[cond] = cond1[cond].to(device)
-                cond2[cond] = cond2[cond].to(device)
-
+                    cond1[cond] = cond1[cond].to(device)
+                    cond2[cond] = cond2[cond].to(device)
+            else:
+                cond1, cond2 = None, None
 
             img_latent = diffusion.sample(model, 
                                           condition=cond2, 
