@@ -59,13 +59,13 @@ def test(config):
     ###################################### data ######################################
 
     # Transforms
-    transform1 = get_transforms(transforms_cfg["transform1"], in_channels=dataset_cfg["img_channels"])
+    # transform1 = get_transforms(transforms_cfg["transform1"], in_channels=dataset_cfg["img_channels"]) 
     transform2 = get_transforms(transforms_cfg["transform2"], in_channels=dataset_cfg["img_channels"])
 
     # Dataset
     dataset = PairwiseHolographyImageFolder(
         root=dataset_cfg["root"], 
-        transform1=transform1, 
+        transform1=transform2, # use transform2 for both (condition transform from training)
         transform2=transform2, 
         dataset_cfg=dataset_cfg,
         cond_cfg=condition_cfg,
@@ -141,7 +141,7 @@ def test(config):
 
     with torch.no_grad():
 
-        for batch_idx, ((im1, im2), (cond1, cond2), (filenames, _)) in enumerate(dataloader):
+        for batch_idx, ((im1, im2), (cond1, cond2), (filenames1, filenames2)) in enumerate(dataloader):
 
             print("batch", batch_idx)
 
@@ -161,31 +161,46 @@ def test(config):
             else:
                 cond1, cond2 = None, None
 
-            img_latent = diffusion.sample(model, 
+            img_latent1 = diffusion.sample(model, 
                                           condition=cond2, 
                                           n=im1.shape[0], 
                                           cfg_scale=inference_cfg.get("ldm_cfg_scale", 3),
                                           to_uint8=False)
+            
+            img_latent2 = diffusion.sample(model, 
+                                          condition=cond1, 
+                                          n=im2.shape[0], 
+                                          cfg_scale=inference_cfg.get("ldm_cfg_scale", 3),
+                                          to_uint8=False)
 
             # upsample with vqvae
-            img = vae.decode(img_latent)
+            img1 = vae.decode(img_latent1)
+            img2 = vae.decode(img_latent2)
 
             # save latents
-            save_tensors_batch(img_latent.cpu(), filenames, save_dir=latents_save_dir)
+            save_tensors_batch(img_latent1.cpu(), filenames1, save_dir=latents_save_dir)
+            save_tensors_batch(img_latent2.cpu(), filenames2, save_dir=latents_save_dir)
 
             # pca image reduction
-            if img_latent.shape[1] > 3:
-                img_latent = pca_channel_reduction(img_latent, out_channels=3)
+            if img_latent1.shape[1] > 3:
+                img_latent1 = pca_channel_reduction(img_latent1, out_channels=3)
+                img_latent2 = pca_channel_reduction(img_latent2, out_channels=3)
 
             #save the generated latent representation
-            img_latent = torch.clamp(img_latent, -1., 1.)
-            img_latent = (img_latent + 1) / 2
-            save_images_batch(img_latent.cpu(), filenames, save_dir=latents_save_dir)
+            # img_latent1 = torch.clamp(img_latent1, -1., 1.)
+            # img_latent2 = torch.clamp(img_latent2, -1., 1.)
+            # img_latent1 = (img_latent1 + 1) / 2
+            # img_latent2 = (img_latent2 + 1) / 2
+            save_images_batch(img_latent1.cpu(), filenames1, save_dir=latents_save_dir)
+            save_images_batch(img_latent2.cpu(), filenames2, save_dir=latents_save_dir)
 
             #save the generated image
-            img = torch.clamp(img, -1., 1.)
-            img = (img + 1) / 2
-            save_images_batch(img.cpu(), filenames, save_dir=images_save_dir)
+            img1 = torch.clamp(img1, -1., 1.)
+            img2 = torch.clamp(img2, -1., 1.)
+            img1 = (img1 + 1) / 2
+            img2 = (img2 + 1) / 2
+            save_images_batch(img1.cpu(), filenames1, save_dir=images_save_dir)
+            save_images_batch(img2.cpu(), filenames2, save_dir=images_save_dir)
 
 
 def pca_channel_reduction(batch, out_channels = 3):
