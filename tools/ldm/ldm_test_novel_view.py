@@ -153,7 +153,8 @@ def test(config):
 
                     # Use image as input condition
                     if cond in used_image_encoders:
-                        cond1[cond] = im1
+                        im1_rotated = torch.flip(im1, dims=[-2, -1]) # rotate image by 180 degrees to match training conditions
+                        cond1[cond] = im1_rotated 
                         cond2[cond] = im2
 
                     cond1[cond] = cond1[cond].to(device)
