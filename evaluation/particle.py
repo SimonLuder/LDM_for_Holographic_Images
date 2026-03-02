@@ -142,6 +142,19 @@ def dice_score(mask1, mask2, eps=1e-8):
     return (2.0 * intersection + eps) / (size_sum + eps)
 
 
+def iou_score(mask1, mask2, eps=1e-8):
+    """
+    Computes Intersection over Union (IoU) between two binary masks.
+    """
+    mask1 = mask1.astype(bool)
+    mask2 = mask2.astype(bool)
+
+    intersection = np.logical_and(mask1, mask2).sum()
+    union = np.logical_or(mask1, mask2).sum()
+
+    return (intersection + eps) / (union + eps)
+
+
 def rotation_invariant_particle_metrics(
     img_gt,
     img_pred,
@@ -152,16 +165,13 @@ def rotation_invariant_particle_metrics(
     Rotation-invariant comparison.
 
     1) Finds rotation that maximizes Dice overlap.
-    2) Computes MSE on texture using that optimal rotation.
-
-    Args
-    ----
-    combined_mask : {"intersection", "union", "gt"}
-        Region used for texture MSE computation.
+    2) Computes IoU at that rotation.
+    3) Computes MSE on texture using that optimal rotation.
 
     Returns
     -------
     best_dice : float
+    best_iou  : float
     best_mse  : float
     """
 
@@ -173,6 +183,7 @@ def rotation_invariant_particle_metrics(
     img_pred, mask_pred = center_image_and_mask(img_pred, mask_pred)
 
     best_dice = -np.inf
+    best_iou = -np.inf
     best_rotated_img = None
     best_rotated_mask = None
 
@@ -185,6 +196,7 @@ def rotation_invariant_particle_metrics(
 
         if dice > best_dice:
             best_dice = dice
+            best_iou = iou_score(mask_gt, rotated_mask)
             best_rotated_mask = rotated_mask
             best_rotated_img = rotate_image(
                 img_pred, angle, interp=cv2.INTER_LINEAR
@@ -201,9 +213,9 @@ def rotation_invariant_particle_metrics(
         raise ValueError("combined_mask must be: intersection, union, or gt")
 
     if mask.sum() == 0:
-        return best_dice, np.inf
+        return best_dice, best_iou, np.inf
 
     # ---- compute texture MSE on best rotation ----
     best_mse = mse_inside_mask(img_gt, best_rotated_img, mask)
 
-    return best_dice, best_mse
+    return best_dice, best_iou, best_mse

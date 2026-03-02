@@ -102,11 +102,12 @@ def calc_test_metrics(config):
         calculate_regionprops(df, i, full_path)
 
         # Particle DICE & MSE
-        p_dice, p_mse = rotation_invariant_particle_metrics(
+        p_dice, p_iou, p_mse = rotation_invariant_particle_metrics(
             gt_img_np, pred_img_np, angle_step=5, combined_mask="intersection",
             )
         
         df.loc[i, "particle_dice"] = p_dice
+        df.loc[i, "particle_iou"] = p_iou
         df.loc[i, "particle_mse"] = p_mse
 
     return df
