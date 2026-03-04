@@ -162,46 +162,53 @@ def test(config):
             else:
                 cond1, cond2 = None, None
 
+
             img_latent1 = diffusion.sample(model, 
                                           condition=cond2, 
                                           n=im1.shape[0], 
                                           cfg_scale=inference_cfg.get("ldm_cfg_scale", 3),
                                           to_uint8=False)
             
-            img_latent2 = diffusion.sample(model, 
-                                          condition=cond1, 
-                                          n=im2.shape[0], 
-                                          cfg_scale=inference_cfg.get("ldm_cfg_scale", 3),
-                                          to_uint8=False)
-
             # upsample with vqvae
             img1 = vae.decode(img_latent1)
-            img2 = vae.decode(img_latent2)
 
             # save latents
             save_tensors_batch(img_latent1.cpu(), filenames1, save_dir=latents_save_dir)
-            save_tensors_batch(img_latent2.cpu(), filenames2, save_dir=latents_save_dir)
 
             # pca image reduction
             if img_latent1.shape[1] > 3:
                 img_latent1 = pca_channel_reduction(img_latent1, out_channels=3)
-                img_latent2 = pca_channel_reduction(img_latent2, out_channels=3)
 
-            #save the generated latent representation
-            # img_latent1 = torch.clamp(img_latent1, -1., 1.)
-            # img_latent2 = torch.clamp(img_latent2, -1., 1.)
-            # img_latent1 = (img_latent1 + 1) / 2
-            # img_latent2 = (img_latent2 + 1) / 2
             save_images_batch(img_latent1.cpu(), filenames1, save_dir=latents_save_dir)
-            save_images_batch(img_latent2.cpu(), filenames2, save_dir=latents_save_dir)
 
             #save the generated image
             img1 = torch.clamp(img1, -1., 1.)
-            img2 = torch.clamp(img2, -1., 1.)
             img1 = (img1 + 1) / 2
-            img2 = (img2 + 1) / 2
             save_images_batch(img1.cpu(), filenames1, save_dir=images_save_dir)
-            save_images_batch(img2.cpu(), filenames2, save_dir=images_save_dir)
+            
+
+            if inference_cfg.get("dual_sampling", True):
+                img_latent2 = diffusion.sample(model, 
+                                            condition=cond1, 
+                                            n=im2.shape[0], 
+                                            cfg_scale=inference_cfg.get("ldm_cfg_scale", 3),
+                                            to_uint8=False)
+
+                # upsample with vqvae
+                img2 = vae.decode(img_latent2)
+
+                # save latents
+                save_tensors_batch(img_latent2.cpu(), filenames2, save_dir=latents_save_dir)
+
+                # pca image reduction
+                if img_latent1.shape[1] > 3:
+                    img_latent2 = pca_channel_reduction(img_latent2, out_channels=3)
+            
+                save_images_batch(img_latent2.cpu(), filenames2, save_dir=latents_save_dir)
+
+                img2 = torch.clamp(img2, -1., 1.)
+                img2 = (img2 + 1) / 2
+                save_images_batch(img2.cpu(), filenames2, save_dir=images_save_dir)
 
 
 def pca_channel_reduction(batch, out_channels = 3):
