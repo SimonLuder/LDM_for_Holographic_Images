@@ -201,7 +201,7 @@ def test(config):
                 save_tensors_batch(img_latent2.cpu(), filenames2, save_dir=latents_save_dir)
 
                 # pca image reduction
-                if img_latent1.shape[1] > 3:
+                if img_latent2.shape[1] > 3:
                     img_latent2 = pca_channel_reduction(img_latent2, out_channels=3)
             
                 save_images_batch(img_latent2.cpu(), filenames2, save_dir=latents_save_dir)
