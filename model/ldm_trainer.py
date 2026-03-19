@@ -155,6 +155,7 @@ class NVLDMTrainer:
             "optimizer": self.optimizer.state_dict(),
             "epoch": epoch,
             "step": self.step_count,
+            "wandb_run_id": self.wandb_run.id if self.wandb_run else None,
         }
 
         if self.discriminator:
