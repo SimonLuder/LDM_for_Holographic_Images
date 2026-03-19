@@ -26,11 +26,11 @@ LDM_for_Holographic_Images/
 ├── notebooks/           # Experiment notebooks
 ├── tools/
 │   ├── ldm/             # LDM train/test/validate scripts
-│   └── vqvae/           # VQ-VAE scripts
+│   └── vqvae/           # VQ-VAE train/test/validate scripts
 ├── utils/               # Config, image, training, and logging utilities
 ├── requirements.txt
 └── README.md
-
+```
 
 
 ## Setup
