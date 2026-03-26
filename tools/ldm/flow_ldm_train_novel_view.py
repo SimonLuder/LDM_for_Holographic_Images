@@ -57,11 +57,16 @@ def train(config):
     # init run
     wandb_run = wandb_manager.get_run()
 
+    checkpoint_dir = os.path.join(train_cfg['ckpt_folder'], run_name)
+    new_conf_path = os.path.join(checkpoint_dir, os.path.basename(config_path))
+
+    # check if folder exists and is not empty
+    if os.path.isdir(checkpoint_dir) and os.listdir(checkpoint_dir):
+        raise RuntimeError(f"Output directory is not empty: {checkpoint_dir}")
+
     # copy config to checkpoint folder
-    Path(os.path.join(train_cfg['ckpt_folder'], run_name)).mkdir(parents=True, exist_ok=True) 
-    shutil.copyfile(config_path, os.path.join(train_cfg['ckpt_folder'], 
-                                              run_name,
-                                              os.path.basename(config_path)))
+    Path(checkpoint_dir).mkdir(parents=True, exist_ok=True) 
+    shutil.copyfile(config_path, new_conf_path)
 
     ###################################### data ######################################
 
@@ -201,7 +206,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Arguments for ldm training')
     parser.add_argument('--config', dest='config_path',
                         default='config/base_ldm_config.yaml', type=str)
-    parser.add_argument("--allow-overwrite", action="store_true", help="Allow resuming into an existing checkpoint directory")
+    parser.add_argument("--allow-overwrite", action="store_false", help="Allow resuming into an existing checkpoint directory")
     args = parser.parse_args()
 
     config = load_config(args.config_path)
