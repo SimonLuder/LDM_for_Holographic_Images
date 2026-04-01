@@ -165,7 +165,7 @@ def test(config):
                 model, 
                 condition=cond2, 
                 n=im1.shape[0], 
-                steps=train_cfg.get("ldm_sampling_steps", 50),
+                steps=inference_cfg.get("ldm_sampling_steps", 50),
                 to_uint8=False
             )
             
@@ -192,7 +192,7 @@ def test(config):
                     model, 
                     condition=cond1, 
                     n=im2.shape[0], 
-                    steps=train_cfg.get("ldm_sampling_steps", 50),
+                    steps=inference_cfg.get("ldm_sampling_steps", 50),
                     to_uint8=False
                 )
 
